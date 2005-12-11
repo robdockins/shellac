@@ -1,5 +1,3 @@
-{-# OPTIONS -fglasgow-exts #-}
-
 module System.Console.Regex where
 
 import Control.Monad
@@ -105,8 +103,8 @@ optRegex re = Label (concat ["[",showRegex TopContext re,"]"]) $
 
 manyRegex :: Regex a x -> Regex a y ->  Regex a [x]
 manyRegex re sep = Label (concat ["{",showRegex TopContext re,"}"]) $
-    Epsilon [] `altProj`
     (Concat (:) re (Star id (Concat (\_ x -> x) sep re)))
+      `altProj` (Epsilon [] )
 
 stringRegex :: String -> x -> Regex Char x
 stringRegex str v = foldr (\c -> Concat (\_ x -> x) (strTerminal c)) (Epsilon v) str
@@ -123,6 +121,9 @@ maybeSpaceRegex = Label "" (starRegex strSpace)
 
 maybeSpaceBefore :: Regex Char x -> Regex Char x
 maybeSpaceBefore re = Concat (\_ x -> x) maybeSpaceRegex re
+
+spaceAfter :: Regex Char x -> Regex Char x
+spaceAfter re = Concat (\x _ -> x) re spaceRegex
 
 maybeSpaceAfter :: Regex Char x -> Regex Char x
 maybeSpaceAfter re = Concat (\x _ -> x) re maybeSpaceRegex

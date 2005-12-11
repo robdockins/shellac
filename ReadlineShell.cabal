@@ -1,0 +1,14 @@
+Name:           ReadlineShell
+Version:        0.1
+License:        BSD3
+Author:         Robert Dockins
+Synopsis:       Framework for creating shell envinronments
+Category:       Console
+Stability:      Alpha
+Hs-Source-Dir:  src
+Extensions:     
+   MultiParamTypeClasses FunctionalDependencies
+Exposed-modules:
+   System.Console.Shell
+Other-modules:
+   System.Console.Regex
