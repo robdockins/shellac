@@ -265,29 +265,9 @@ instance CommandFunction r st
   commandSyntax f = concat [" ",show intRegex,commandSyntax (f undefined)]
 
 instance CommandFunction r st
-      => CommandFunction (Maybe Int -> r) st where
-  parseCommand = doParseCommand Nothing (optRegex intRegex) id
-  commandSyntax f = concat [" [",show intRegex,"]",commandSyntax (f undefined)]
-
-instance CommandFunction r st
-      => CommandFunction ([Int] -> r) st where
-  parseCommand = doParseCommand Nothing (manyRegex intRegex spaceRegex) id
-  commandSyntax f = concat [" {",show intRegex,"}",commandSyntax (f undefined)]
-
-instance CommandFunction r st
       => CommandFunction (Integer -> r) st where
   parseCommand = doParseCommand Nothing intRegex id
   commandSyntax f = concat [" ",show intRegex,commandSyntax (f undefined)]
-
-instance CommandFunction r st
-      => CommandFunction (Maybe Integer -> r) st where
-  parseCommand = doParseCommand Nothing (optRegex intRegex) id
-  commandSyntax f = concat [" [",show intRegex,"]",commandSyntax (f undefined)]
-
-instance CommandFunction r st
-      => CommandFunction ([Integer] -> r) st where
-  parseCommand = doParseCommand Nothing (manyRegex intRegex spaceRegex) id
-  commandSyntax f = concat [" {",show intRegex,"}",commandSyntax (f undefined)]
 
 instance CommandFunction r st
       => CommandFunction (Float -> r) st where
@@ -295,29 +275,9 @@ instance CommandFunction r st
   commandSyntax f = concat [" ",show floatRegex,commandSyntax (f undefined)]
 
 instance CommandFunction r st
-      => CommandFunction (Maybe Float -> r) st where
-  parseCommand = doParseCommand Nothing (optRegex floatRegex) id
-  commandSyntax f = concat [" [",show intRegex,"]",commandSyntax (f undefined)]
-
-instance CommandFunction r st
-      => CommandFunction ([Float] -> r) st where
-  parseCommand = doParseCommand Nothing (manyRegex floatRegex spaceRegex) id
-  commandSyntax f = concat [" {",show intRegex,"}",commandSyntax (f undefined)]
-
-instance CommandFunction r st
       => CommandFunction (Double -> r) st where
   parseCommand = doParseCommand Nothing floatRegex id
   commandSyntax f = concat [" ",show floatRegex,commandSyntax (f undefined)]
-
-instance CommandFunction r st
-      => CommandFunction (Maybe Double -> r) st where
-  parseCommand = doParseCommand Nothing (optRegex floatRegex) id
-  commandSyntax f = concat [" [",show intRegex,"]",commandSyntax (f undefined)]
-
-instance CommandFunction r st
-      => CommandFunction ([Double] -> r) st where
-  parseCommand = doParseCommand Nothing (manyRegex floatRegex spaceRegex) id
-  commandSyntax f = concat [" {",show intRegex,"}",commandSyntax (f undefined)]
 
 instance CommandFunction r st
       => CommandFunction (String -> r) st where
@@ -325,38 +285,10 @@ instance CommandFunction r st
   commandSyntax f = concat [" ",show (wordRegex ""),commandSyntax (f undefined)]
 
 instance CommandFunction r st
-      => CommandFunction (Maybe String -> r) st where
-  parseCommand wbc = doParseCommand Nothing (optRegex (wordRegex wbc)) id wbc
-  commandSyntax f = concat [" [",show (wordRegex ""),"]",commandSyntax (f undefined)]
-
-instance CommandFunction r st
-      => CommandFunction ([String] -> r) st where
-  parseCommand wbc = doParseCommand Nothing (wordsRegex wbc) id wbc
-  commandSyntax f = concat [" ",show (wordsRegex ""),commandSyntax (f undefined)]
-
-instance CommandFunction r st
       => CommandFunction (File -> r) st where
   parseCommand wbc = doParseCommand
                         (Just (\st -> RL.filenameCompletionFunction)) (wordRegex wbc) File wbc
   commandSyntax f = concat [" <file>",commandSyntax (f undefined)]
-
-instance CommandFunction r st
-      => CommandFunction (Maybe File -> r) st where
-  parseCommand wbc = doParseCommand
-                        (Just (\st -> RL.filenameCompletionFunction))
-                        (optRegex (wordRegex wbc))
-                        (fmap File)
-                        wbc
-  commandSyntax f = concat [" [<file>]",commandSyntax (f undefined)]
-
-instance CommandFunction r st
-      => CommandFunction ([File] -> r) st where
-  parseCommand wbc = doParseCommand
-                        (Just (\st -> RL.filenameCompletionFunction))
-                        (manyRegex (wordRegex wbc) spaceRegex)
-                        (fmap File)
-                        wbc
-  commandSyntax f = concat [" {<file>}",commandSyntax (f undefined)]
 
 instance CommandFunction r st
       => CommandFunction (Username -> r) st where
@@ -367,24 +299,6 @@ instance CommandFunction r st
                         wbc
   commandSyntax f = concat [" <username>",commandSyntax (f undefined)]
 
-instance CommandFunction r st
-      => CommandFunction (Maybe Username -> r) st where
-  parseCommand wbc = doParseCommand
-                        (Just (\st -> RL.usernameCompletionFunction))
-                        (optRegex (wordRegex wbc))
-                        (fmap Username)
-                        wbc
-  commandSyntax f = concat [" [<username>]",commandSyntax (f undefined)]
-
-instance CommandFunction r st
-      => CommandFunction ([Username] -> r) st where
-  parseCommand wbc = doParseCommand
-                        (Just (\st -> RL.usernameCompletionFunction))
-                        (manyRegex (wordRegex wbc) spaceRegex)
-                        (fmap Username)
-                        wbc
-  commandSyntax f = concat [" {<username>}",commandSyntax (f undefined)]
-  
 instance (CommandFunction r st,Completion compl st)
       => CommandFunction (Completable compl -> r) st where
   parseCommand wbc = doParseCommand
@@ -393,24 +307,6 @@ instance (CommandFunction r st,Completion compl st)
                         Completable
                         wbc
   commandSyntax f = concat [" ",completableLabel (undefined::compl),commandSyntax (f undefined)]
-
-instance (CommandFunction r st,Completion compl st)
-      => CommandFunction (Maybe (Completable compl) -> r) st where
-  parseCommand wbc = doParseCommand
-                        (Just (complete (undefined::compl)))
-                        (optRegex (wordRegex wbc))
-                        (fmap Completable)
-                        wbc
-  commandSyntax f = concat [" [",completableLabel (undefined::compl),"]",commandSyntax (f undefined)]
-
-instance (CommandFunction r st,Completion compl st)
-      => CommandFunction ([Completable compl] -> r) st where
-  parseCommand wbc = doParseCommand
-                        (Just (complete (undefined::compl)))
-                        (manyRegex (wordRegex wbc) spaceRegex)
-                        (fmap Completable)
-                        wbc
-  commandSyntax f = concat [" {",completableLabel (undefined::compl),"}",commandSyntax (f undefined)]
 
 doParseCommand compl re proj wbc f []  = return (IncompleteParse compl)
 doParseCommand compl re proj wbc f str =

@@ -5,7 +5,10 @@ Author:         Robert Dockins
 Synopsis:       Framework for creating shell envinronments
 Category:       Console
 Stability:      Alpha
-Hs-Source-Dir:  src
+Hs-Source-Dirs:  
+   src
+Build-Depends:
+   base, haskell98, mtl, readline
 Extensions:     
    MultiParamTypeClasses FunctionalDependencies
 Exposed-modules:
