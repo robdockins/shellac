@@ -32,6 +32,7 @@ data CommandParseResult st
 
 type CommandParser st = String -> [CommandParseResult st]
 type ShellCommand st = ShellDescription st -> (String,CommandParser st,String,String)
+type Subshell st st' = (st -> IO st', st' -> IO st, st' -> IO (ShellDescription st') )
 
 data ShellDescription st
    = ShDesc
@@ -39,6 +40,7 @@ data ShellDescription st
    , commandStyle       :: CommandStyle
    , evaluateFunc       :: EvaluationFunction st
    , wordBreakChars     :: [Char]
+   , beforePrompt       :: st -> IO ()
    , prompt             :: String
    , defaultCompletions :: Maybe (st -> String -> IO [String])
    }
@@ -51,6 +53,7 @@ initialShellDescription =
        , commandStyle       = ColonCommands
        , evaluateFunc       = \_ st -> return st
        , wordBreakChars     = wbc
+       , beforePrompt       = \_ -> putStrLn ""
        , prompt             = "> "
        , defaultCompletions = Just (\_ _ -> return [])
        }
@@ -139,7 +142,8 @@ shellLoop :: ShellDescription st -> InternalShellState st -> st -> IO st
 shellLoop desc iss init = loop init
  where
    loop st =
-     do RL.setAttemptedCompletionFunction (Just (completionFunction desc st))
+     do beforePrompt desc st
+        RL.setAttemptedCompletionFunction (Just (completionFunction desc st))
         case defaultCompletions desc of
            Nothing -> RL.setCompletionEntryFunction $ Nothing
            Just f  -> RL.setCompletionEntryFunction $ Just (f st)
@@ -214,6 +218,24 @@ helpCommand name desc = ( name
                         , concat [maybeColon desc,name]
                         , "Display the shell command help"
                         )
+
+simpleSubshell :: (st -> IO st')
+               -> ShellDescription st'
+               -> IO (Subshell st st')
+simpleSubshell toSubSt desc = do
+  ref <- newEmptyMVar
+  let toSubSt' st     = putMVar ref st >> toSubSt st
+  let fromSubSt subSt = takeMVar ref
+  let mkDesc _        = return desc
+  return (toSubSt',fromSubSt,mkDesc)
+
+runSubshell :: Subshell st st' -> st -> IO st
+runSubshell (toSubSt, fromSubSt, mkSubDesc) st = do
+  subSt   <- toSubSt st
+  subDesc <- mkSubDesc subSt
+  subSt'  <- runShell subDesc subSt
+  st'     <- fromSubSt subSt'
+  return st'
 
 newtype FullCommand st   = FullCommand (st -> IO (CommandResult st))
 newtype StateCommand st  = StateCommand (st -> IO st)
