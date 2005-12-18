@@ -1,6 +1,7 @@
 Name:           ReadlineShell
 Version:        0.1
 License:        BSD3
+License-File:   LICENSE
 Author:         Robert Dockins
 Synopsis:       Framework for creating shell envinronments
 Category:       Console
