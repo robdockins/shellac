@@ -23,6 +23,7 @@ module System.Console.Shell (
   ShellDescription (..)
 , initialShellDescription
 , mkShellDescription
+, defaultExceptionHandler
 
 -- * Executing Shells
 , runShell
@@ -68,7 +69,7 @@ import Data.List ( (\\), isPrefixOf, find )
 import Control.Monad (when, MonadPlus(..) )
 import Control.Monad.Error ()
 import Control.Monad.Trans
-import Control.Exception (bracket)
+import qualified Control.Exception as Ex (Exception,bracket,catch)
 import Control.Concurrent (ThreadId, threadDelay, killThread, forkIO)
 import Control.Concurrent.MVar
 import System.Posix.Signals (Handler (..), installHandler, keyboardSignal)
@@ -126,15 +127,16 @@ type Subshell st st' = (st -> IO st', st' -> IO st, st' -> IO (ShellDescription 
 -- | A record type which describes the attributes of a shell.
 data ShellDescription st
    = ShDesc
-   { shellCommands      :: [ShellCommand st]      -- ^ Commands for this shell
-   , commandStyle       :: CommandStyle           -- ^ The style of shell commands
-   , evaluateFunc       :: EvaluationFunction st  -- ^ The evaluation function for this shell
-   , wordBreakChars     :: [Char]                 -- ^ The characters upon which readline will break words
-   , beforePrompt       :: st -> IO ()            -- ^ an IO action to run before each prompt is printed
-   , prompt             :: String                 -- ^ The prompt to print
+   { shellCommands      :: [ShellCommand st]        -- ^ Commands for this shell
+   , commandStyle       :: CommandStyle             -- ^ The style of shell commands
+   , evaluateFunc       :: EvaluationFunction st    -- ^ The evaluation function for this shell
+   , wordBreakChars     :: [Char]                   -- ^ The characters upon which readline will break words
+   , beforePrompt       :: st -> IO ()              -- ^ an IO action to run before each prompt is printed
+   , prompt             :: String                   -- ^ The prompt to print
+   , exceptionHandler   :: Ex.Exception -> st -> IO st -- ^ A function called when an exception occurs
    , defaultCompletions :: Maybe (st -> String -> IO [String])
-                                                  -- ^ If set, this function provides completions when NOT
-                                                  --   in the context of a shell command
+                                                    -- ^ If set, this function provides completions when NOT
+                                                    --   in the context of a shell command
    }
 
 -- | A basic shell description with sane initial values
@@ -148,6 +150,7 @@ initialShellDescription =
        , wordBreakChars     = wbc
        , beforePrompt       = \_ -> putStrLn ""
        , prompt             = "> "
+       , exceptionHandler   = defaultExceptionHandler
        , defaultCompletions = Just (\_ _ -> return [])
        }
 
@@ -172,7 +175,7 @@ data InternalShellState st
 --   this function runs the shell until it exits, and then returns
 --   the final state.
 runShell :: ShellDescription st -> st -> IO st
-runShell desc init = bracket setupShell exitShell (\iss -> shellLoop desc iss init)
+runShell desc init = Ex.bracket setupShell exitShell (\iss -> shellLoop desc iss init)
 
   where setupShell  =
          do evalM <- newEmptyMVar
@@ -263,7 +266,7 @@ shellLoop desc iss init = loop init
           parses' = concatMap (\x -> case x of CompleteParse z -> [z]; _ -> []) parses
       in case parses' of
           f:_ -> do
-              r <- f st
+              r <- handleExceptions desc f (return . Right) st
               case r of
                   Left spec -> handleSpecial st spec
                   Right st' -> loop st'
@@ -278,9 +281,9 @@ shellLoop desc iss init = loop init
          t = evalThreadMVar iss
          h = cancelHandler iss
          e = evaluateFunc desc
-     in do tid <- forkIO (e inp st >>= putMVar m . Just)
+     in do tid <- forkIO (handleExceptions desc (e inp) return st >>= putMVar m . Just)
            putMVar t tid
-           result <- bracket
+           result <- Ex.bracket
               (installHandler keyboardSignal h Nothing)
               (\oldh -> installHandler keyboardSignal oldh Nothing)
               (\_ -> do
@@ -291,6 +294,23 @@ shellLoop desc iss init = loop init
            case result of
              Nothing  -> putStrLn "cancled..." >> loop st
              Just st' -> loop st'
+
+handleExceptions :: ShellDescription st -> (st -> IO a) -> (st -> IO a) -> st -> IO a
+handleExceptions desc m f st = Ex.catch (m st) $ \ex -> do
+   st' <- (exceptionHandler desc) ex st
+   f st'
+
+-- | The default shell exception handler.  It simply prints the exception
+--   and returns the shell state unchanged.  (However, it specificaly
+--   ignores the thread killed exception, because that is used to 
+--   implement execution cancling)
+
+defaultExceptionHandler :: Ex.Exception -> st -> IO st
+
+defaultExceptionHandler (Ex.AsyncException Ex.ThreadKilled) st = return st
+defaultExceptionHandler ex st = do
+  putStrLn $ concat ["The following exception occured:\n   ",show ex]
+  return st
 
 -- | Prints the help message for this shell, which lists all avaliable
 --   commands with their syntax and a short informative message about each.
