@@ -69,9 +69,10 @@ import Data.List ( (\\), isPrefixOf, find )
 import Control.Monad (when, MonadPlus(..) )
 import Control.Monad.Error ()
 import Control.Monad.Trans
-import qualified Control.Exception as Ex (Exception,bracket,catch)
+import qualified Control.Exception as Ex
 import Control.Concurrent (ThreadId, threadDelay, killThread, forkIO)
 import Control.Concurrent.MVar
+import System.IO (stdout, hFlush)
 import System.Posix.Signals (Handler (..), installHandler, keyboardSignal)
 import Numeric (readDec, readHex, readFloat)
 import qualified System.Console.Readline as RL
@@ -243,7 +244,8 @@ shellLoop :: ShellDescription st -> InternalShellState st -> st -> IO st
 shellLoop desc iss init = loop init
  where
    loop st =
-     do beforePrompt desc st
+     do hFlush stdout
+        beforePrompt desc st
         RL.setAttemptedCompletionFunction (Just (completionFunction desc st))
         case defaultCompletions desc of
            Nothing -> RL.setCompletionEntryFunction $ Nothing
