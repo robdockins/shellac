@@ -76,6 +76,7 @@ import System.IO (stdout, hFlush)
 import System.Posix.Signals (Handler (..), installHandler, keyboardSignal)
 import Numeric (readDec, readHex, readFloat)
 import qualified System.Console.Readline as RL
+import PPrint
 
 import System.Console.Regex
 
@@ -116,8 +117,8 @@ type CommandParser st = String -> [CommandParseResult st]
 
 -- | The type of a shell command.  The shell description is passed in, and the
 --   tuple consists of
---     (command name,command parser,command syntax,help message)
-type ShellCommand st = ShellDescription st -> (String,CommandParser st,String,String)
+--     (command name,command parser,command syntax document,help message document)
+type ShellCommand st = ShellDescription st -> (String,CommandParser st,Doc,Doc)
 
 -- | The type of subshells.  The tuple consists of
 --    1) A function to generate the initial subshell state from the outer shell state
@@ -317,24 +318,28 @@ defaultExceptionHandler ex st = do
 -- | Prints the help message for this shell, which lists all avaliable
 --   commands with their syntax and a short informative message about each.
 showShellHelp :: ShellDescription st -> String
-showShellHelp desc = concat [ concat [syn,"\t\t",msg,"\n"] | (_,_,syn,msg) <- getShellCommands desc ]
+showShellHelp desc = show (commandHelpDoc desc (getShellCommands desc))
 
 -- | Print the help message for a particular shell command
 showCmdHelp :: ShellDescription st -> String -> String
 showCmdHelp desc cmd =
   case cmds of
-     [(n,_,syn,msg)] -> concat [syn,"\n",msg]
-     _               -> concat ["bad command name: '",cmd,"'"]
+     [_] -> show (commandHelpDoc desc cmds)
+     _   -> concat ["bad command name: '",cmd,"'"]
 
  where cmds = filter (\ (n,_,_,_) -> n == cmd) (getShellCommands desc)
+
+commandHelpDoc :: ShellDescription st ->  [(String,CommandParser st,Doc,Doc)] -> Doc
+commandHelpDoc desc cmds = 
+   vcat [ (fillBreak 20 syn) <+> msg | (_,_,syn,msg) <- cmds ]
 
 -- | Creates a shell command which will exit the shell.
 exitCommand :: String            -- ^ the name of the command
             -> ShellCommand st
 exitCommand name desc = ( name
                         , \_ -> [CompleteParse (\_ -> return (Left ShellExit))]
-                        , concat [maybeColon desc,name]
-                        , "Exit the shell"
+                        , text (maybeColon desc) <> text name
+                        , text "Exit the shell"
                         )
 
 -- | Creates a command which will print the shell help message.
@@ -342,8 +347,8 @@ helpCommand :: String           -- ^ the name of the command
             -> ShellCommand st
 helpCommand name desc = ( name
                         , \_ -> [CompleteParse (\_ -> return (Left (ShellHelp Nothing)))]
-                        , concat [maybeColon desc,name]
-                        , "Display the shell command help"
+                        , text (maybeColon desc) <> text name
+                        , text "Display the shell command help"
                         )
 
 -- | Creates a simple subshell from a state mapping function 
@@ -409,12 +414,11 @@ cmd :: CommandFunction f st
     -> ShellCommand st
 
 cmd name f helpMsg desc =
-      (name
-      ,parseCommand (wordBreakChars desc) f
-      ,concat [maybeColon desc,name,commandSyntax f]
-      ,helpMsg
+      ( name
+      , parseCommand (wordBreakChars desc) f
+      , text (maybeColon desc) <> text name <+> hsep (commandSyntax f)
+      , text helpMsg
       )
-
 
 -- | This class is used in the 'cmd' function to automaticly generate
 --   the command parsers and command syntax strings for user defined
@@ -441,59 +445,59 @@ cmd name f helpMsg desc =
 
 class CommandFunction f st | f -> st where
   parseCommand  :: String -> f -> CommandParser st
-  commandSyntax :: f -> String
+  commandSyntax :: f -> [Doc]
 
 instance CommandFunction (FullCommand st) st where
   parseCommand wbc (FullCommand f) str = 
          do (x,[]) <- runRegex (maybeSpaceBefore (Epsilon (CompleteParse f))) str
             return x
 
-  commandSyntax _ = ""
+  commandSyntax _ = []
 
 instance CommandFunction (StateCommand st) st where
   parseCommand wbc (StateCommand f) str = 
          do (x,[]) <- runRegex (maybeSpaceAfter (Epsilon (CompleteParse (\st -> f st >>= return . Right)))) str
             return x
 
-  commandSyntax _ = ""
+  commandSyntax _ = []
 
 instance CommandFunction (SimpleCommand st) st where
   parseCommand wbc (SimpleCommand f) str = 
          do (x,[]) <- runRegex (maybeSpaceAfter (Epsilon (CompleteParse (\st -> f >> return (Right st))))) str
             return x
 
-  commandSyntax _ = ""
+  commandSyntax _ = []
 
 instance CommandFunction r st
       => CommandFunction (Int -> r) st where
   parseCommand = doParseCommand Nothing intRegex id
-  commandSyntax f = concat [" ",show intRegex,commandSyntax (f undefined)]
+  commandSyntax f = text (show intRegex) : commandSyntax (f undefined)
 
 instance CommandFunction r st
       => CommandFunction (Integer -> r) st where
   parseCommand = doParseCommand Nothing intRegex id
-  commandSyntax f = concat [" ",show intRegex,commandSyntax (f undefined)]
+  commandSyntax f =  text (show intRegex) : commandSyntax (f undefined)
 
 instance CommandFunction r st
       => CommandFunction (Float -> r) st where
   parseCommand = doParseCommand Nothing floatRegex id
-  commandSyntax f = concat [" ",show floatRegex,commandSyntax (f undefined)]
+  commandSyntax f = text (show floatRegex) : commandSyntax (f undefined)
 
 instance CommandFunction r st
       => CommandFunction (Double -> r) st where
   parseCommand = doParseCommand Nothing floatRegex id
-  commandSyntax f = concat [" ",show floatRegex,commandSyntax (f undefined)]
+  commandSyntax f = text (show floatRegex) : commandSyntax (f undefined)
 
 instance CommandFunction r st
       => CommandFunction (String -> r) st where
   parseCommand wbc = doParseCommand Nothing (wordRegex wbc) id wbc
-  commandSyntax f = concat [" ",show (wordRegex ""),commandSyntax (f undefined)]
+  commandSyntax f = text (show (wordRegex "")) : commandSyntax (f undefined)
 
 instance CommandFunction r st
       => CommandFunction (File -> r) st where
   parseCommand wbc = doParseCommand
                         (Just (\st -> RL.filenameCompletionFunction)) (wordRegex wbc) File wbc
-  commandSyntax f = concat [" <file>",commandSyntax (f undefined)]
+  commandSyntax f = text "<file>" : commandSyntax (f undefined)
 
 instance CommandFunction r st
       => CommandFunction (Username -> r) st where
@@ -502,7 +506,7 @@ instance CommandFunction r st
                         (wordRegex wbc)
                         Username
                         wbc
-  commandSyntax f = concat [" <username>",commandSyntax (f undefined)]
+  commandSyntax f = text "<username>" : commandSyntax (f undefined)
 
 instance (CommandFunction r st,Completion compl st)
       => CommandFunction (Completable compl -> r) st where
@@ -511,7 +515,7 @@ instance (CommandFunction r st,Completion compl st)
                         (wordRegex wbc)
                         Completable
                         wbc
-  commandSyntax f = concat [" ",completableLabel (undefined::compl),commandSyntax (f undefined)]
+  commandSyntax f = text (completableLabel (undefined::compl)) : commandSyntax (f undefined)
 
 doParseCommand compl re proj wbc f []  = return (IncompleteParse compl)
 doParseCommand compl re proj wbc f str =
@@ -520,19 +524,19 @@ doParseCommand compl re proj wbc f str =
         [] -> return (IncompleteParse compl)
         _  -> do (x,str') <- xs; parseCommand wbc (f (proj x)) str'
 
-commandsRegex :: ShellDescription st -> Regex Char (String,CommandParser st,String,String)
+commandsRegex :: ShellDescription st -> Regex Char (String,CommandParser st,Doc,Doc)
 commandsRegex desc =
    case commandStyle desc of
       ColonCommands -> colonCommandsRegex (getShellCommands desc)
       OnlyCommands  -> onlyCommandsRegex  (getShellCommands desc)
 
-onlyCommandsRegex :: [(String,CommandParser st,String,String)] -> Regex Char (String,CommandParser st,String,String)
+onlyCommandsRegex :: [(String,CommandParser st,Doc,Doc)] -> Regex Char (String,CommandParser st,Doc,Doc)
 onlyCommandsRegex xs =
     Concat (\_ x -> x) maybeSpaceRegex $
     Concat (\x _ -> x) (anyOfRegex (map (\ (x,y,z,w) -> (x,(x,y,z,w))) xs)) $
                        spaceRegex
 
-colonCommandsRegex :: [(String,CommandParser st,String,String)] -> Regex Char (String,CommandParser st,String,String)
+colonCommandsRegex :: [(String,CommandParser st,Doc,Doc)] -> Regex Char (String,CommandParser st,Doc,Doc)
 colonCommandsRegex xs =
     Concat (\_ x -> x) maybeSpaceRegex $
     Concat (\_ x -> x) (strTerminal ':') $

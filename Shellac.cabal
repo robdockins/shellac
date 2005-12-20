@@ -20,3 +20,4 @@ Exposed-modules:
    System.Console.Shell
 Other-modules:
    System.Console.Regex
+   PPrint
