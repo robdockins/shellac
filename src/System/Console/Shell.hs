@@ -5,17 +5,22 @@
  -}
 
 {- | This module implements a framework for creating read-eval-print style
-     command shells.  Shells are created by declarativly defining evaluation
+     command shells.  Shells are created by declaratively defining evaluation
      functions and \"shell commands\".  Input is read using the standard Haskell
-     readline bindings, and the shell framework handles history and word completion
+     readline bindings, and the shell framework handles command history and word completion
      features.
-
+ 
      The basic idea is:
-       1) Create a list of shell commands and an evaluation function
-       2) Create a shell description
-       3) Set up the initial shell state
-       4) Run the shell
+ 
+      (1) Create a list of shell commands and an evaluation function
+
+      (2) Create a shell description
+
+      (3) Set up the initial shell state
+
+      (4) Run the shell
 -}
+
 
 module System.Console.Shell (
 
@@ -44,6 +49,9 @@ module System.Console.Shell (
 
 -- ** Low-Level Interface
 , ShellCommand
+, CommandParser
+, CommandParseResult (..)
+, CommandResult
 
 -- * Subshells
 , Subshell
@@ -56,11 +64,8 @@ module System.Console.Shell (
 
 -- * Type Synonyms and Auxiliary Types
 , CommandStyle (..)
-, CommandResult
-, EvaluationFunction
 , ShellSpecial (..)
-, CommandParseResult (..)
-, CommandParser
+, EvaluationFunction
 ) where
 
 import Maybe (isJust)
@@ -96,7 +101,7 @@ type CommandResult st = Either ShellSpecial st
 -- | The type of an evaluation function for a shell.  The function
 --   takes the input string and the current shell state, and returns
 --   a possibly modified shell state.
-type EvaluationFunction st = String -> st -> IO st
+type EvaluationFunction st = String -> st -> IO (Either ShellSpecial st)
 
 -- | Special commands for the shell framework.
 data ShellSpecial
@@ -120,11 +125,22 @@ type CommandParser st = String -> [CommandParseResult st]
 --     (command name,command parser,command syntax document,help message document)
 type ShellCommand st = ShellDescription st -> (String,CommandParser st,Doc,Doc)
 
--- | The type of subshells.  The tuple consists of
---    1) A function to generate the initial subshell state from the outer shell state
---    2) A function to generate the outer shell state from the final subshell state
---    3) A function to generate the shell description from the inital subshell state
+
+-- | The type of subshells.  The tuple consists of:
+--
+--    (1) A function to generate the initial subshell state from the outer shell state
+--
+--    (2) A function to generate the outer shell state from the final subshell state
+--
+--    (3) A function to generate the shell description from the inital subshell state
+
 type Subshell st st' = (st -> IO st', st' -> IO st, st' -> IO (ShellDescription st') )
+
+
+
+------------------------------------------------------------------------
+-- The shell description and utility functions
+
 
 -- | A record type which describes the attributes of a shell.
 data ShellDescription st
@@ -148,7 +164,7 @@ initialShellDescription =
      return ShDesc
        { shellCommands      = []
        , commandStyle       = ColonCommands
-       , evaluateFunc       = \_ st -> return st
+       , evaluateFunc       = \_ st -> return (Right st)
        , wordBreakChars     = wbc
        , beforePrompt       = \_ -> putStrLn ""
        , prompt             = "> "
@@ -166,12 +182,24 @@ mkShellDescription cmds func =
              , evaluateFunc  = func
              }
 
+
+-------------------------------------------------------------------
+-- A record to hold some of the internal muckety-muck needed
+-- to make the shell go
+
+
 data InternalShellState st
    = InternalShellState
-     { evalMVar         :: MVar (Maybe st)
+     { evalMVar         :: MVar (Maybe (Either ShellSpecial st))
      , evalThreadMVar   :: MVar ThreadId
      , cancelHandler    :: Handler
      }
+
+
+-------------------------------------------------------------------
+-- Main entry point for the shell.  Sets up the crap needed to
+-- run shell commands and evaluation in a separate thread.
+
 
 -- | Run a shell.  Given a shell description and an initial state
 --   this function runs the shell until it exits, and then returns
@@ -198,7 +226,21 @@ runShell desc init = Ex.bracket setupShell exitShell (\iss -> shellLoop desc iss
                                  tryPutMVar evalM Nothing
                                  return ()
 
-completionFunction :: ShellDescription st -> st -> String -> Int -> Int -> IO (Maybe (String,[String]))
+-------------------------------------------------------------------------
+-- This function is installed as the readline completion function
+-- It attempts to match the prefix of the input buffer against a
+-- command.  If it matches, it supplies the completions appropriate
+-- for that point in the command.  Otherwise it returns Nothing; in
+-- that case, readline will fall back on the default completion function
+-- set in the shell description.
+
+completionFunction :: ShellDescription st    
+                   -> st 
+                   -> String
+                   -> Int 
+                   -> Int 
+                   -> IO (Maybe (String,[String]))
+
 completionFunction desc st word begin end = do
    buffer <- RL.getLineBuffer
    let before = take begin buffer
@@ -240,6 +282,12 @@ maximalPrefix [] = []
 maximalPrefix (x:xs) = f x xs
   where f p [] = p
         f p (x:xs) = f (fst $ unzip $ takeWhile (\x -> fst x == snd x) $ zip p x) xs
+
+
+-----------------------------------------------------------
+-- The real meat.  We setup readline stuff, call readline
+-- and then handle the input string.
+
 
 shellLoop :: ShellDescription st -> InternalShellState st -> st -> IO st
 shellLoop desc iss init = loop init
@@ -284,7 +332,7 @@ shellLoop desc iss init = loop init
          t = evalThreadMVar iss
          h = cancelHandler iss
          e = evaluateFunc desc
-     in do tid <- forkIO (handleExceptions desc (e inp) return st >>= putMVar m . Just)
+     in do tid <- forkIO (handleExceptions desc (e inp) (return . Right) st >>= putMVar m . Just)
            putMVar t tid
            result <- Ex.bracket
               (installHandler keyboardSignal h Nothing)
@@ -295,44 +343,64 @@ shellLoop desc iss init = loop init
                   return result)
 
            case result of
-             Nothing  -> putStrLn "cancled..." >> loop st
-             Just st' -> loop st'
+             Nothing          -> putStrLn "canceled..." >> loop st
+             Just (Left spec) -> handleSpecial st spec
+             Just (Right st') -> loop st'
+
+
+------------------------------------------------------------------------
+-- Keeps exceptions from bubbling out to the main shell loop and killing it.
+-- We invoke the exception handler from the shell description.
 
 handleExceptions :: ShellDescription st -> (st -> IO a) -> (st -> IO a) -> st -> IO a
 handleExceptions desc m f st = Ex.catch (m st) $ \ex -> do
    st' <- (exceptionHandler desc) ex st
    f st'
 
+-------------------------------------------------------------------------
 -- | The default shell exception handler.  It simply prints the exception
 --   and returns the shell state unchanged.  (However, it specificaly
 --   ignores the thread killed exception, because that is used to 
---   implement execution cancling)
+--   implement execution canceling)
 
 defaultExceptionHandler :: Ex.Exception -> st -> IO st
 
 defaultExceptionHandler (Ex.AsyncException Ex.ThreadKilled) st = return st
 defaultExceptionHandler ex st = do
-  putStrLn $ concat ["The following exception occured:\n   ",show ex]
+  putStrLn $ concat ["The following exception occurred:\n   ",show ex]
   return st
 
+
+-----------------------------------------------------------------------
 -- | Prints the help message for this shell, which lists all avaliable
 --   commands with their syntax and a short informative message about each.
+
 showShellHelp :: ShellDescription st -> String
+
 showShellHelp desc = show (commandHelpDoc desc (getShellCommands desc))
 
+
+-------------------------------------------------------------------------
 -- | Print the help message for a particular shell command
+
 showCmdHelp :: ShellDescription st -> String -> String
+
 showCmdHelp desc cmd =
   case cmds of
      [_] -> show (commandHelpDoc desc cmds)
-     _   -> concat ["bad command name: '",cmd,"'"]
+     _   -> show (text "bad command name: " <> squotes (text cmd))
 
  where cmds = filter (\ (n,_,_,_) -> n == cmd) (getShellCommands desc)
 
+
 commandHelpDoc :: ShellDescription st ->  [(String,CommandParser st,Doc,Doc)] -> Doc
+
 commandHelpDoc desc cmds = 
+
    vcat [ (fillBreak 20 syn) <+> msg | (_,_,syn,msg) <- cmds ]
 
+
+------------------------------------------------------------------------------
 -- | Creates a shell command which will exit the shell.
 exitCommand :: String            -- ^ the name of the command
             -> ShellCommand st
@@ -342,6 +410,8 @@ exitCommand name desc = ( name
                         , text "Exit the shell"
                         )
 
+
+--------------------------------------------------------------------------
 -- | Creates a command which will print the shell help message.
 helpCommand :: String           -- ^ the name of the command
             -> ShellCommand st
@@ -351,11 +421,15 @@ helpCommand name desc = ( name
                         , text "Display the shell command help"
                         )
 
+
+----------------------------------------------------------------------------
 -- | Creates a simple subshell from a state mapping function 
 --   and a shell description.
-simpleSubshell :: (st -> IO st')       -- ^ A function to generate the initial subshell state from the outer shell state
+simpleSubshell :: (st -> IO st')       -- ^ A function to generate the initial subshell 
+                                       --   state from the outer shell state
                -> ShellDescription st' -- ^ A shell description for the subshell
                -> IO (Subshell st st')
+
 simpleSubshell toSubSt desc = do
   ref <- newEmptyMVar
   let toSubSt' st     = putMVar ref st >> toSubSt st
@@ -363,16 +437,29 @@ simpleSubshell toSubSt desc = do
   let mkDesc _        = return desc
   return (toSubSt',fromSubSt,mkDesc)
 
--- | Execute a subshell.
+
+----------------------------------------------------------------------------
+-- | Execute a subshell, suspending the outer shell until the subshell exits.
 runSubshell :: Subshell st st' -- ^ the subshell to execute
             -> st              -- ^ the current state
             -> IO st           -- ^ the modified state
+
+
 runSubshell (toSubSt, fromSubSt, mkSubDesc) st = do
   subSt   <- toSubSt st
   subDesc <- mkSubDesc subSt
   subSt'  <- runShell subDesc subSt
   st'     <- fromSubSt subSt'
   return st'
+
+
+
+-------------------------------------------------------------
+-- And now, a clever way to generate shell commands
+-- from function signatures by abusing the typeclass
+-- mechanism.
+
+
 
 -- | A shell command which can return shell special commands as well as 
 --   modifying the shell state
@@ -390,13 +477,18 @@ newtype File = File String
 -- | Represents a command argument which is a username
 newtype Username = Username String
 
+
 -- | Represents a command argument which is an arbitrary
 --   completable item.  The type argument determines the
 --   instance of 'Completion' which is used to create
 --   completions for this command argument.
 newtype Completable compl = Completable String
 
+
+------------------------------------------------------------------
 -- | A typeclass representing user definable completion functions.
+
+
 class Completion compl st | compl -> st where
   -- | Actually generates the list of possible completions, given the
   --   current shell state and a string representing the beginning of the word.
@@ -405,13 +497,17 @@ class Completion compl st | compl -> st where
   -- | generates a label for the argument for use in the help displays.
   completableLabel :: compl -> String
 
--- | Creates a user defined shell commmand.
+
+-------------------------------------------------------------------
+-- | Creates a user defined shell commmand.  This relies on the
+--   typeclass machenery defined by 'CommandFunction'.
 cmd :: CommandFunction f st 
     => String           -- ^ the name of the command
     -> f                -- ^ the command function.  See 'CommandFunction' for restrictions
                         --   on the type of this function.
     -> String           -- ^ the help string for this command
     -> ShellCommand st
+
 
 cmd name f helpMsg desc =
       ( name
@@ -420,6 +516,8 @@ cmd name f helpMsg desc =
       , text helpMsg
       )
 
+
+------------------------------------------------------------------------------
 -- | This class is used in the 'cmd' function to automaticly generate
 --   the command parsers and command syntax strings for user defined
 --   commands.  The type of 'f' is restricted to have a restricted set of
@@ -447,6 +545,10 @@ class CommandFunction f st | f -> st where
   parseCommand  :: String -> f -> CommandParser st
   commandSyntax :: f -> [Doc]
 
+
+-------------------------------------------------------------
+-- Instances for the base cases.
+
 instance CommandFunction (FullCommand st) st where
   parseCommand wbc (FullCommand f) str = 
          do (x,[]) <- runRegex (maybeSpaceBefore (Epsilon (CompleteParse f))) str
@@ -467,6 +569,11 @@ instance CommandFunction (SimpleCommand st) st where
             return x
 
   commandSyntax _ = []
+
+
+--------------------------------------------------------------
+-- Instances for the supported command argument types.
+
 
 instance CommandFunction r st
       => CommandFunction (Int -> r) st where
@@ -516,6 +623,11 @@ instance (CommandFunction r st,Completion compl st)
                         Completable
                         wbc
   commandSyntax f = text (completableLabel (undefined::compl)) : commandSyntax (f undefined)
+
+
+----------------------------------------------------------------
+-- Helper functions used in the above instance declarations
+-- These make use of the hackish regex library.
 
 doParseCommand compl re proj wbc f []  = return (IncompleteParse compl)
 doParseCommand compl re proj wbc f str =
