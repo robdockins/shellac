@@ -1,0 +1,69 @@
+
+         Shellac 
+        Version 0.1
+-========================-
+
+
+== What is it?
+
+Shellac is a framework for building read-eval-print style shells.  
+Shells are created by declaratively defining a set of shell commands
+and an evaluation function.  Shellac builds on the Haskell readline
+bindings found in the standard libraries.  These bindings reflect
+the low-level nature of readline and are not very Haskellish.  This
+library attempts to allow users to write shells in at a high-level
+and still enjoy the advanced features readline provides, like
+command completion, command history and user-defineable keybindings.
+
+
+== Why do I care?
+
+Shellac takes care of much the muckety-muck of writing robust, 
+feature-full shells so you don't have to.
+
+
+== How is it licensed?
+
+Shellac is avaliable under a BSD3 license.  See the LICENSE file for
+details.  Be aware, however, that the GNU readline library itself is
+licensed under the GPL.  This library will only be useful to you if
+your project is GPL compatable.  
+
+Go here (http://directory.fsf.org/GNU/readline.html) for more information
+about the readline library.
+
+
+== How do I build it?
+
+Shellac uses a Cabal build system.  The follwing commands
+assumen you have a haskell interpreter in your system 
+path named 'runhaskell'.  All commands are run from
+this directory.
+
+To install for the whole system:
+
+runhaskell Setup.hs configure
+runhaskell Setup.hs build
+runhaskell Setup.hs install
+
+To install for a single user:
+
+runhaskell Setup.hs configure --prefix=/home/<username>
+runhaskell Setup.hs build
+runhaskell Setup.hs install --user
+
+To build the API docs:
+
+runhaskell Setup.hs haddock
+
+
+== Why 'Shellac'?
+
+I had to call it something.  And is starts with 'shell'.
+
+
+== Who is responsable for this mess?
+
+You can send bug reports, rants and comments to:
+
+  Robert Dockins <robdockins AT fastmail.fm>
