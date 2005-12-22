@@ -18,6 +18,8 @@ Extensions:
    FunctionalDependencies
 Exposed-modules:
    System.Console.Shell
+   System.Console.Shell.Backend
+   System.Console.Shell.Backend.Basic
 Other-modules:
    System.Console.Shell.Regex
    System.Console.Shell.PPrint

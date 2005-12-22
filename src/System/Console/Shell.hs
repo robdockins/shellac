@@ -80,11 +80,10 @@ import Control.Concurrent.MVar
 import System.IO (stdout, hFlush)
 import System.Posix.Signals (Handler (..), installHandler, keyboardSignal)
 import Numeric (readDec, readHex, readFloat)
-import qualified System.Console.Readline as RL
 
 import System.Console.Shell.PPrint
 import System.Console.Shell.Regex
-
+import System.Console.Shell.Backend
 
 -- | Datatype describing the style of shell commands.  This 
 --   determines how shell input is parsed.
@@ -110,11 +109,16 @@ data ShellSpecial
                                --   If a command name is specified, only information about
                                --   that command will be displayed.
 
+data CommandCompleter st
+  = FilenameCompleter
+  | UsernameCompleter
+  | OtherCompleter (st -> String -> IO [String])
+
 -- | The result of parsing a command.
 data CommandParseResult st
   = CompleteParse (st -> IO (CommandResult st)) 
           -- ^ A complete parse.  A command function is returned.
-  | IncompleteParse (Maybe (st -> String -> IO [String]))
+  | IncompleteParse (Maybe (CommandCompleter st))
           -- ^ An incomplete parse.  A word completion function may be returned.
 
 -- | The type of a command parser.
@@ -188,11 +192,12 @@ mkShellDescription cmds func =
 -- to make the shell go
 
 
-data InternalShellState st
+data InternalShellState st bst
    = InternalShellState
      { evalMVar         :: MVar (Maybe (Either ShellSpecial st))
      , evalThreadMVar   :: MVar ThreadId
      , cancelHandler    :: Handler
+     , backendState     :: bst
      }
 
 
@@ -204,16 +209,23 @@ data InternalShellState st
 -- | Run a shell.  Given a shell description and an initial state
 --   this function runs the shell until it exits, and then returns
 --   the final state.
-runShell :: ShellDescription st -> st -> IO st
-runShell desc init = Ex.bracket setupShell exitShell (\iss -> shellLoop desc iss init)
+
+runShell :: ShellDescription st 
+         -> ShellBackend bst hist 
+         -> st 
+         -> IO st
+
+runShell desc backend init = Ex.bracket setupShell exitShell (\iss -> shellLoop desc backend iss init)
 
   where setupShell  =
          do evalM <- newEmptyMVar
             thM   <- newEmptyMVar
+            bst   <- initBackend backend
             return InternalShellState
                    { evalMVar = evalM
                    , evalThreadMVar = thM
                    , cancelHandler = Catch (handleINT evalM thM)
+                   , backendState = bst
                    }
 
         exitShell iss = return ()
@@ -235,36 +247,37 @@ runShell desc init = Ex.bracket setupShell exitShell (\iss -> shellLoop desc iss
 -- set in the shell description.
 
 completionFunction :: ShellDescription st    
+                   -> ShellBackend bst hist
+                   -> bst
                    -> st 
-                   -> String
-                   -> Int 
-                   -> Int 
+                   -> (String,String,String)
                    -> IO (Maybe (String,[String]))
 
-completionFunction desc st word begin end = do
-   buffer <- RL.getLineBuffer
-   let before = take begin buffer
-   let after  = drop end buffer
-
+completionFunction desc backend bst st line@(before,word,after) = do
    if all isSpace before
-     then completeCommands desc before after word
-     else
-       case runRegex (commandsRegex desc) before of
-             [((_,cmdParser,_,_),before')] ->
-                let parses  = cmdParser before'
-                    parses' = concatMap (\x -> case x of IncompleteParse (Just z) -> [z]; _ -> []) parses
-                in case parses' of
-                   compl:_ -> do
-                       strings <- compl st word
-                       case strings of
-                          [] -> return Nothing
-                          xs -> return $ Just (maximalPrefix xs,xs)
-                   _ -> return Nothing
-             _ -> return Nothing
+     then completeCommands desc line
+     else case runRegex (commandsRegex desc) before of
+         [((_,cmdParser,_,_),before')] -> do
+                let completers  = [ z | IncompleteParse (Just z) <- cmdParser before' ]
+                strings <- case completers of 
+                              FilenameCompleter:_  -> completeFilename backend bst word >>= return . Just
+                              UsernameCompleter:_  -> completeUsername backend bst word >>= return . Just
+                              (OtherCompleter f):_ -> f st word >>= return . Just
+                              _ -> return Nothing
+                case strings of
+                   Nothing -> return Nothing
+                   Just [] -> return Nothing
+                   Just xs -> return (Just (maximalPrefix xs,xs))
+
+         _ -> return Nothing
 
 
-completeCommands :: ShellDescription st -> String -> String -> String -> IO (Maybe (String,[String]))
-completeCommands desc before after word =
+
+completeCommands :: ShellDescription st 
+                 -> (String,String,String) 
+                 -> IO (Maybe (String,[String]))
+
+completeCommands desc (before,word,after) =
     case matchingNames of
        [] -> return $ Nothing
        xs -> return $ Just (maximalPrefix xs,xs)
@@ -289,24 +302,33 @@ maximalPrefix (x:xs) = f x xs
 -- and then handle the input string.
 
 
-shellLoop :: ShellDescription st -> InternalShellState st -> st -> IO st
-shellLoop desc iss init = loop init
+shellLoop :: ShellDescription st 
+          -> ShellBackend bst hist
+          -> InternalShellState st bst
+          -> st 
+          -> IO st
+
+shellLoop desc backend iss init = loop init
  where
+   bst = backendState iss
    loop st =
-     do hFlush stdout
+     do flushOutput backend bst
         beforePrompt desc st
-        RL.setAttemptedCompletionFunction (Just (completionFunction desc st))
+        setAttemptedCompletionFunction backend bst
+	      (completionFunction desc backend bst st)
+
         case defaultCompletions desc of
-           Nothing -> RL.setCompletionEntryFunction $ Nothing
-           Just f  -> RL.setCompletionEntryFunction $ Just (f st)
-        RL.setBasicWordBreakCharacters (wordBreakChars desc)
-        inp <- RL.readline (prompt desc)
+           Nothing -> setDefaultCompletionFunction backend bst $ Nothing
+           Just f  -> setDefaultCompletionFunction backend bst $ Just (f st)
+
+        setWordBreakChars backend bst (wordBreakChars desc)
+        inp <- getInput backend bst (prompt desc)
         case inp of
            Nothing   -> return st
            Just inp' -> handleInput inp' st
 
    handleInput inp st = do
-     when (isJust (find (not . isSpace) inp)) (RL.addHistory inp)
+     when (isJust (find (not . isSpace) inp)) (addHistory backend bst inp)
      let inp' = inp++" " -- hack, makes commands unambiguous
      case runRegex (commandsRegex desc) inp' of
        (x,inp''):_ -> executeCommand x inp'' st
@@ -440,25 +462,24 @@ simpleSubshell toSubSt desc = do
 
 ----------------------------------------------------------------------------
 -- | Execute a subshell, suspending the outer shell until the subshell exits.
-runSubshell :: Subshell st st' -- ^ the subshell to execute
-            -> st              -- ^ the current state
-            -> IO st           -- ^ the modified state
+runSubshell :: Subshell st st'   -- ^ the subshell to execute
+            -> ShellBackend bst hist -- ^ the shell backend to use
+            -> st                -- ^ the current state
+            -> IO st             -- ^ the modified state
 
 
-runSubshell (toSubSt, fromSubSt, mkSubDesc) st = do
+runSubshell (toSubSt, fromSubSt, mkSubDesc) backend st = do
   subSt   <- toSubSt st
   subDesc <- mkSubDesc subSt
-  subSt'  <- runShell subDesc subSt
+  subSt'  <- runShell subDesc backend subSt
   st'     <- fromSubSt subSt'
   return st'
-
 
 
 -------------------------------------------------------------
 -- And now, a clever way to generate shell commands
 -- from function signatures by abusing the typeclass
 -- mechanism.
-
 
 
 -- | A shell command which can return shell special commands as well as 
@@ -603,13 +624,16 @@ instance CommandFunction r st
 instance CommandFunction r st
       => CommandFunction (File -> r) st where
   parseCommand wbc = doParseCommand
-                        (Just (\st -> RL.filenameCompletionFunction)) (wordRegex wbc) File wbc
+                        (Just FilenameCompleter)
+                        (wordRegex wbc) 
+                        File 
+                        wbc
   commandSyntax f = text "<file>" : commandSyntax (f undefined)
 
 instance CommandFunction r st
       => CommandFunction (Username -> r) st where
   parseCommand wbc = doParseCommand
-                        (Just (\st -> RL.usernameCompletionFunction))
+                        (Just UsernameCompleter)
                         (wordRegex wbc)
                         Username
                         wbc
@@ -618,7 +642,7 @@ instance CommandFunction r st
 instance (CommandFunction r st,Completion compl st)
       => CommandFunction (Completable compl -> r) st where
   parseCommand wbc = doParseCommand
-                        (Just (complete (undefined::compl)))
+                        (Just (OtherCompleter (complete (undefined::compl))))
                         (wordRegex wbc)
                         Completable
                         wbc
