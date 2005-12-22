@@ -10,7 +10,7 @@
 --
 -- Haskell98 compatible
 -----------------------------------------------------------
-module PPrint 
+module System.Console.Shell.PPrint 
         ( Doc
         , Pretty, pretty
         

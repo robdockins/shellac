@@ -81,9 +81,9 @@ import System.IO (stdout, hFlush)
 import System.Posix.Signals (Handler (..), installHandler, keyboardSignal)
 import Numeric (readDec, readHex, readFloat)
 import qualified System.Console.Readline as RL
-import PPrint
 
-import System.Console.Regex
+import System.Console.Shell.PPrint
+import System.Console.Shell.Regex
 
 
 -- | Datatype describing the style of shell commands.  This 

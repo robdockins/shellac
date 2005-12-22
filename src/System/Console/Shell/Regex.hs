@@ -13,7 +13,7 @@
  -   for most shell command lines that won't matter too much.
  -}
 
-module System.Console.Regex where
+module System.Console.Shell.Regex where
 
 import Control.Monad
 import Numeric
