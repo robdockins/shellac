@@ -4,11 +4,21 @@
  -  
  -}
 
+
+{- | This module implements a simple Shellac backend that uses only
+     the primitaves from "System.IO".  It provides no history or
+     command completion capabilities.  You get whatever line editing
+     capabilities hGetLine has and that's it.
+-}
+
 module System.Console.Shell.Backend.Basic
 ( basicBackend
 ) where
 
-import System.IO
+import System.IO   ( stdout, stdin, hFlush, hPutStr, hPutStrLn
+	           , hGetLine, hGetChar, hGetBuffering, hSetBuffering
+                   , BufferMode(..)
+                   )
 import qualified Control.Exception as Ex
 
 import System.Console.Shell.Backend

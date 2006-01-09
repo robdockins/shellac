@@ -1,4 +1,3 @@
-
 {-
  - 
  -  Copyright 2005, Robert Dockins.
@@ -15,8 +14,9 @@
 
 module System.Console.Shell.Regex where
 
-import Control.Monad
-import Numeric
+import Numeric               ( readDec, readFloat, readHex )
+import Control.Monad         ( MonadPlus(..) )
+
 
 {- | The type of regular expressions.  Regular expressions evaluation
      calculates a result value as well as recognizing strings in a language,

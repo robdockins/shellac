@@ -67,19 +67,18 @@ module System.Console.Shell (
 , EvaluationFunction
 ) where
 
-import Maybe (isJust)
-import Data.Char (toLower, isDigit, isSpace)
-import Data.List ( (\\), isPrefixOf, find )
-import Control.Monad (when, MonadPlus(..) )
-import Control.Monad.Error ()
-import Control.Monad.Trans
+import Maybe                       ( isJust )
+import Data.Char                   ( isSpace )
+import Data.List                   ( isPrefixOf, find )
+import Data.IORef                  ( IORef, newIORef, readIORef, writeIORef )
+import Control.Monad               ( when, MonadPlus(..) )
+import Control.Monad.Error         ()
+import Control.Concurrent          ( ThreadId, threadDelay, killThread, forkIO )
+import Control.Concurrent.STM      ( atomically, retry )
+import Control.Concurrent.STM.TVar ( newTVar, readTVar, writeTVar, TVar )
+import System.Directory            ( doesFileExist )
+import System.Posix.Signals        ( Handler (..), installHandler, keyboardSignal )
 import qualified Control.Exception as Ex
-import Control.Concurrent (ThreadId, threadDelay, killThread, forkIO)
-import Control.Concurrent.MVar
-import System.IO (stdout, hFlush)
-import System.Directory
-import System.Posix.Signals (Handler (..), installHandler, keyboardSignal)
-import Numeric (readDec, readHex, readFloat)
 
 import System.Console.Shell.PPrint
 import System.Console.Shell.Regex
