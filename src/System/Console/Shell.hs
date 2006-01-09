@@ -1,6 +1,6 @@
 {-
  -
- -  Copyright 2005, Robert Dockins.
+ -  Copyright 2005-2006, Robert Dockins.
  -
  -}
 

@@ -11,10 +11,14 @@ Hs-Source-Dir:
 Build-Depends:
    base >= 1.0,
    haskell98 >= 1.0,
-   mtl >= 1.0
+   mtl >= 1.0,
+   stm >= 1.0
 Extensions:
    MultiParamTypeClasses
    FunctionalDependencies
+   ExistentialQuantification                      
+-- GADT
+-- STM
 Exposed-modules:
    System.Console.Shell
    System.Console.Shell.Backend
