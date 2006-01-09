@@ -204,12 +204,12 @@ mkShellDescription cmds func =
 
 data InternalShellState st bst
    = InternalShellState
-     { evalMVar         :: MVar (Maybe (Either (ShellSpecial st) st))
-     , evalThreadMVar   :: MVar ThreadId
+     { evalTVar        :: TVar (Maybe (Either (ShellSpecial st) st))
+     , evalThreadTVar  :: TVar (Maybe ThreadId)
+     , evalCancelTVar  :: TVar Bool
      , cancelHandler    :: Handler
      , backendState     :: bst
      }
-
 
 -------------------------------------------------------------------
 -- Main entry point for the shell.  Sets up the crap needed to
@@ -228,16 +228,20 @@ runShell :: ShellDescription st
 runShell desc backend init = Ex.bracket setupShell exitShell (\iss -> shellLoop desc backend iss init)
 
   where setupShell  =
-         do evalM <- newEmptyMVar
-            thM   <- newEmptyMVar
-            bst   <- initBackend backend
+         do evalVar   <- atomically (newTVar Nothing)
+            thVar     <- atomically (newTVar Nothing)
+            cancelVar <- atomically (newTVar False)
+            bst       <- initBackend backend
+
             when (historyEnabled desc) (do
    	       setMaxHistoryEntries backend bst (maxHistoryEntries desc)
                loadHistory desc backend bst)
+
             return InternalShellState
-                   { evalMVar = evalM
-                   , evalThreadMVar = thM
-                   , cancelHandler = Catch (handleINT evalM thM)
+                   { evalTVar       = evalVar
+                   , evalThreadTVar = thVar
+                   , evalCancelTVar = cancelVar
+                   , cancelHandler  = Catch (handleINT evalVar cancelVar thVar)
                    , backendState = bst
                    }
 
@@ -247,13 +251,23 @@ runShell desc backend init = Ex.bracket setupShell exitShell (\iss -> shellLoop 
 	       clearHistoryState backend (backendState iss))
 	    flushOutput backend (backendState iss)
 
-        handleINT evalM thM  =
-           do tid <- tryTakeMVar thM
-              case tid of
-                 Nothing   -> error "could not take thread id mvar! bad race condition!"
-                 Just tid' -> do killThread tid'
-                                 tryPutMVar evalM Nothing
-                                 return ()
+        handleINT evalVar cancelVar thVar = do
+          maybeTid <- atomically (do
+ 	    	         result <- readTVar evalVar
+	                 if isJust result
+                            then return Nothing
+                            else do writeTVar cancelVar True
+                                    writeTVar evalVar Nothing
+                                    tid <- readTVar thVar
+	                            case tid of
+                                       Nothing  -> retry
+                                       Just tid -> return (Just tid))
+
+
+          case maybeTid of
+             Nothing  -> return ()
+             Just tid -> killThread tid
+
 
 -------------------------------------------------------------------------
 -- This function is installed as the readline completion function
@@ -413,20 +427,32 @@ shellLoop desc backend iss init = loop init
    handleSpecial st (ShellHelp (Just cmd))  = putStrLn (showCmdHelp desc cmd) >> loop st
    handleSpecial st (ExecSubshell subshell) = runSubshell desc subshell backend bst st >>= loop
 
+   runThread eval inp iss st = do
+      val <- handleExceptions desc (eval inp) (return . Right) st
+      atomically (do
+         cancled <- readTVar (evalCancelTVar iss)
+	 if cancled then return () else do
+           writeTVar (evalTVar iss) (Just val))
+
    evaluateInput inp st =
-     let m = evalMVar iss
-         t = evalThreadMVar iss
+     let eVar = evalTVar iss
+         cVar = evalCancelTVar iss
+         tVar = evalThreadTVar iss
          h = cancelHandler iss
          e = evaluateFunc desc
-     in do tid <- forkIO (handleExceptions desc (e inp) (return . Right) st >>= putMVar m . Just)
-           putMVar t tid
+     in do atomically (writeTVar cVar False >> writeTVar eVar Nothing >> writeTVar tVar Nothing)
+           tid <- forkIO (runThread e inp iss st)
+	   atomically (writeTVar tVar (Just tid))
            result <- Ex.bracket
               (installHandler keyboardSignal h Nothing)
               (\oldh -> installHandler keyboardSignal oldh Nothing)
-              (\_ -> do
-                  result <- takeMVar m
-                  tryTakeMVar t
-                  return result)
+              (\_ -> atomically (do
+                  canceled <- readTVar cVar
+                  if canceled then return Nothing else do
+                    result <- readTVar eVar
+                    case result of
+                       Nothing -> retry
+                       Just r  -> return (Just r)))
 
            case result of
              Nothing          -> putStrLn "canceled..." >> loop st
@@ -517,9 +543,9 @@ simpleSubshell :: (st -> IO st')       -- ^ A function to generate the initial s
                -> IO (Subshell st st')
 
 simpleSubshell toSubSt desc = do
-  ref <- newEmptyMVar
-  let toSubSt' st     = putMVar ref st >> toSubSt st
-  let fromSubSt subSt = takeMVar ref
+  ref <- newIORef undefined
+  let toSubSt' st     = writeIORef ref st >> toSubSt st
+  let fromSubSt subSt = readIORef ref
   let mkDesc _        = return desc
   return (toSubSt',fromSubSt,mkDesc)
 
