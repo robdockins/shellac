@@ -1,7 +1,7 @@
 {-
- - 
+ -
  -  Copyright 2005, Robert Dockins.
- -  
+ -
  -}
 
 {- | This module implements a framework for creating read-eval-print style
@@ -9,9 +9,9 @@
      functions and \"shell commands\".  Input is read using the standard Haskell
      readline bindings, and the shell framework handles command history and word completion
      features.
- 
+
      The basic idea is:
- 
+
       (1) Create a list of shell commands and an evaluation function
 
       (2) Create a shell description
@@ -56,7 +56,6 @@ module System.Console.Shell (
 -- * Subshells
 , Subshell
 , simpleSubshell
-, runSubshell
 
 -- * Printing Help Messages
 , showShellHelp
@@ -78,6 +77,7 @@ import qualified Control.Exception as Ex
 import Control.Concurrent (ThreadId, threadDelay, killThread, forkIO)
 import Control.Concurrent.MVar
 import System.IO (stdout, hFlush)
+import System.Directory
 import System.Posix.Signals (Handler (..), installHandler, keyboardSignal)
 import Numeric (readDec, readHex, readFloat)
 
@@ -85,29 +85,33 @@ import System.Console.Shell.PPrint
 import System.Console.Shell.Regex
 import System.Console.Shell.Backend
 
--- | Datatype describing the style of shell commands.  This 
+-- | Datatype describing the style of shell commands.  This
 --   determines how shell input is parsed.
 data CommandStyle
    = OnlyCommands   -- ^ Indicates that all input is to be interpreted as shell commands; no
                     --   input will be passed to the evaluation function.
    | ColonCommands  -- ^ Indicates that commands are prefaced with a colon ':' character.
+   | SingleCharCommands -- ^ Commands consisit of a single character
 
 -- | The type of results from shell commands.  They are either
 --   a \"special\" action for the shell framework to execute, or
 --   a modified shell state.
-type CommandResult st = Either ShellSpecial st
+type CommandResult st = Either (ShellSpecial st) st
 
 -- | The type of an evaluation function for a shell.  The function
 --   takes the input string and the current shell state, and returns
 --   a possibly modified shell state.
-type EvaluationFunction st = String -> st -> IO (Either ShellSpecial st)
+type EvaluationFunction st = String -> st -> IO (Either (ShellSpecial st) st)
 
 -- | Special commands for the shell framework.
-data ShellSpecial
+data ShellSpecial st
   = ShellExit                  -- ^ Causes the shell to exit
   | ShellHelp (Maybe String)   -- ^ Causes the shell to print an informative message.
                                --   If a command name is specified, only information about
                                --   that command will be displayed.
+  | ShellNothing               -- ^ Instructs the shell to do nothing; redisplay the prompt and continue
+  | forall st'. ExecSubshell
+      (Subshell st st')        -- ^ Causes the shell to execute a subshell
 
 data CommandCompleter st
   = FilenameCompleter
@@ -116,7 +120,7 @@ data CommandCompleter st
 
 -- | The result of parsing a command.
 data CommandParseResult st
-  = CompleteParse (st -> IO (CommandResult st)) 
+  = CompleteParse (st -> IO (CommandResult st))
           -- ^ A complete parse.  A command function is returned.
   | IncompleteParse (Maybe (CommandCompleter st))
           -- ^ An incomplete parse.  A word completion function may be returned.
@@ -159,6 +163,9 @@ data ShellDescription st
    , defaultCompletions :: Maybe (st -> String -> IO [String])
                                                     -- ^ If set, this function provides completions when NOT
                                                     --   in the context of a shell command
+   , historyFile        :: Maybe FilePath
+   , maxHistoryEntries  :: Int
+   , historyEnabled     :: Bool
    }
 
 -- | A basic shell description with sane initial values
@@ -174,6 +181,9 @@ initialShellDescription =
        , prompt             = "> "
        , exceptionHandler   = defaultExceptionHandler
        , defaultCompletions = Just (\_ _ -> return [])
+       , historyFile        = Nothing
+       , maxHistoryEntries  = 100
+       , historyEnabled     = True
        }
 
 -- | Creates a simple shell description from a list of shell commmands and
@@ -194,7 +204,7 @@ mkShellDescription cmds func =
 
 data InternalShellState st bst
    = InternalShellState
-     { evalMVar         :: MVar (Maybe (Either ShellSpecial st))
+     { evalMVar         :: MVar (Maybe (Either (ShellSpecial st) st))
      , evalThreadMVar   :: MVar ThreadId
      , cancelHandler    :: Handler
      , backendState     :: bst
@@ -210,9 +220,9 @@ data InternalShellState st bst
 --   this function runs the shell until it exits, and then returns
 --   the final state.
 
-runShell :: ShellDescription st 
-         -> ShellBackend bst hist 
-         -> st 
+runShell :: ShellDescription st
+         -> ShellBackend bst hist
+         -> st
          -> IO st
 
 runShell desc backend init = Ex.bracket setupShell exitShell (\iss -> shellLoop desc backend iss init)
@@ -221,6 +231,9 @@ runShell desc backend init = Ex.bracket setupShell exitShell (\iss -> shellLoop 
          do evalM <- newEmptyMVar
             thM   <- newEmptyMVar
             bst   <- initBackend backend
+            when (historyEnabled desc) (do
+   	       setMaxHistoryEntries backend bst (maxHistoryEntries desc)
+               loadHistory desc backend bst)
             return InternalShellState
                    { evalMVar = evalM
                    , evalThreadMVar = thM
@@ -228,7 +241,11 @@ runShell desc backend init = Ex.bracket setupShell exitShell (\iss -> shellLoop 
                    , backendState = bst
                    }
 
-        exitShell iss = return ()
+        exitShell iss = do
+            when (historyEnabled desc) (do
+               saveHistory desc backend (backendState iss)
+	       clearHistoryState backend (backendState iss))
+	    flushOutput backend (backendState iss)
 
         handleINT evalM thM  =
            do tid <- tryTakeMVar thM
@@ -246,10 +263,10 @@ runShell desc backend init = Ex.bracket setupShell exitShell (\iss -> shellLoop 
 -- that case, readline will fall back on the default completion function
 -- set in the shell description.
 
-completionFunction :: ShellDescription st    
+completionFunction :: ShellDescription st
                    -> ShellBackend bst hist
                    -> bst
-                   -> st 
+                   -> st
                    -> (String,String,String)
                    -> IO (Maybe (String,[String]))
 
@@ -259,7 +276,7 @@ completionFunction desc backend bst st line@(before,word,after) = do
      else case runRegex (commandsRegex desc) before of
          [((_,cmdParser,_,_),before')] -> do
                 let completers  = [ z | IncompleteParse (Just z) <- cmdParser before' ]
-                strings <- case completers of 
+                strings <- case completers of
                               FilenameCompleter:_  -> completeFilename backend bst word >>= return . Just
                               UsernameCompleter:_  -> completeUsername backend bst word >>= return . Just
                               (OtherCompleter f):_ -> f st word >>= return . Just
@@ -273,8 +290,8 @@ completionFunction desc backend bst st line@(before,word,after) = do
 
 
 
-completeCommands :: ShellDescription st 
-                 -> (String,String,String) 
+completeCommands :: ShellDescription st
+                 -> (String,String,String)
                  -> IO (Maybe (String,[String]))
 
 completeCommands desc (before,word,after) =
@@ -286,7 +303,7 @@ completeCommands desc (before,word,after) =
         cmdNames      = map (\ (n,_,_,_) -> (maybeColon desc)++n) (getShellCommands desc)
 
 maybeColon :: ShellDescription st -> String
-maybeColon desc = case commandStyle desc of ColonCommands -> ":"; OnlyCommands -> ""
+maybeColon desc = case commandStyle desc of ColonCommands -> ":"; _ -> ""
 
 getShellCommands desc = map ($ desc) (shellCommands desc)
 
@@ -297,15 +314,46 @@ maximalPrefix (x:xs) = f x xs
         f p (x:xs) = f (fst $ unzip $ takeWhile (\x -> fst x == snd x) $ zip p x) xs
 
 
+
 -----------------------------------------------------------
--- The real meat.  We setup readline stuff, call readline
--- and then handle the input string.
+-- Deal with reading and writing history files.
+
+loadHistory :: ShellDescription st
+            -> ShellBackend bst hist
+            -> bst
+            -> IO ()
+
+loadHistory desc backend bst =
+  case historyFile desc of
+     Nothing   -> return ()
+     Just path -> do
+        fexists <- doesFileExist path
+        when fexists $
+           Ex.handle (\ex -> putStrLn $ concat ["could not read history file '",path,"'\n   ",show ex])
+             (readHistory backend bst path)
+
+saveHistory :: ShellDescription st
+            -> ShellBackend bst hist
+            -> bst
+            -> IO ()
+
+saveHistory desc backend bst =
+  case historyFile desc of
+    Nothing   -> return ()
+    Just path ->
+       Ex.handle (\ex -> putStrLn $ concat ["could not write history file '",path,"'\n    ",show ex])
+          (writeHistory backend bst path)
 
 
-shellLoop :: ShellDescription st 
+-----------------------------------------------------------
+-- The real meat.  We setup backend stuff, call the backend
+-- to get the input string, and then handle the input.
+
+
+shellLoop :: ShellDescription st
           -> ShellBackend bst hist
           -> InternalShellState st bst
-          -> st 
+          -> st
           -> IO st
 
 shellLoop desc backend iss init = loop init
@@ -322,17 +370,31 @@ shellLoop desc backend iss init = loop init
            Just f  -> setDefaultCompletionFunction backend bst $ Just (f st)
 
         setWordBreakChars backend bst (wordBreakChars desc)
-        inp <- getInput backend bst (prompt desc)
+
+        inp <- case commandStyle desc of
+
+                 SingleCharCommands -> do
+                      c <- getSingleChar backend bst (prompt desc)
+                      return (fmap (:[]) c)
+
+                 _ -> getInput backend bst (prompt desc)
+
+
         case inp of
            Nothing   -> return st
            Just inp' -> handleInput inp' st
 
    handleInput inp st = do
-     when (isJust (find (not . isSpace) inp)) (addHistory backend bst inp)
+     when (historyEnabled desc && (isJust (find (not . isSpace) inp)))
+          (addHistory backend bst inp)
+
      let inp' = inp++" " -- hack, makes commands unambiguous
+
      case runRegex (commandsRegex desc) inp' of
        (x,inp''):_ -> executeCommand x inp'' st
        []          -> evaluateInput inp st
+
+
 
    executeCommand (cmdName,cmdParser,_,_) inp st =
       let parses  = cmdParser inp
@@ -345,9 +407,11 @@ shellLoop desc backend iss init = loop init
                   Right st' -> loop st'
           _   -> putStrLn (showCmdHelp desc cmdName) >> loop st
 
-   handleSpecial st ShellExit              = return st
-   handleSpecial st (ShellHelp Nothing)    = putStrLn (showShellHelp desc)   >> loop st
-   handleSpecial st (ShellHelp (Just cmd)) = putStrLn (showCmdHelp desc cmd) >> loop st
+   handleSpecial st ShellExit               = return st
+   handleSpecial st ShellNothing            = loop st
+   handleSpecial st (ShellHelp Nothing)     = putStrLn (showShellHelp desc)   >> loop st
+   handleSpecial st (ShellHelp (Just cmd))  = putStrLn (showCmdHelp desc cmd) >> loop st
+   handleSpecial st (ExecSubshell subshell) = runSubshell desc subshell backend bst st >>= loop
 
    evaluateInput inp st =
      let m = evalMVar iss
@@ -382,7 +446,7 @@ handleExceptions desc m f st = Ex.catch (m st) $ \ex -> do
 -------------------------------------------------------------------------
 -- | The default shell exception handler.  It simply prints the exception
 --   and returns the shell state unchanged.  (However, it specificaly
---   ignores the thread killed exception, because that is used to 
+--   ignores the thread killed exception, because that is used to
 --   implement execution canceling)
 
 defaultExceptionHandler :: Ex.Exception -> st -> IO st
@@ -417,7 +481,7 @@ showCmdHelp desc cmd =
 
 commandHelpDoc :: ShellDescription st ->  [(String,CommandParser st,Doc,Doc)] -> Doc
 
-commandHelpDoc desc cmds = 
+commandHelpDoc desc cmds =
 
    vcat [ (fillBreak 20 syn) <+> msg | (_,_,syn,msg) <- cmds ]
 
@@ -445,9 +509,9 @@ helpCommand name desc = ( name
 
 
 ----------------------------------------------------------------------------
--- | Creates a simple subshell from a state mapping function 
+-- | Creates a simple subshell from a state mapping function
 --   and a shell description.
-simpleSubshell :: (st -> IO st')       -- ^ A function to generate the initial subshell 
+simpleSubshell :: (st -> IO st')       -- ^ A function to generate the initial subshell
                                        --   state from the outer shell state
                -> ShellDescription st' -- ^ A shell description for the subshell
                -> IO (Subshell st st')
@@ -462,16 +526,26 @@ simpleSubshell toSubSt desc = do
 
 ----------------------------------------------------------------------------
 -- | Execute a subshell, suspending the outer shell until the subshell exits.
-runSubshell :: Subshell st st'   -- ^ the subshell to execute
+runSubshell :: ShellDescription desc -- ^ the description of the outer shell
+            -> Subshell st st'       -- ^ the subshell to execute
             -> ShellBackend bst hist -- ^ the shell backend to use
-            -> st                -- ^ the current state
-            -> IO st             -- ^ the modified state
+            -> bst                   -- ^ the backendstate
+            -> st                    -- ^ the current state
+            -> IO st                 -- ^ the modified state
 
 
-runSubshell (toSubSt, fromSubSt, mkSubDesc) backend st = do
+runSubshell desc (toSubSt, fromSubSt, mkSubDesc) backend bst st = do
   subSt   <- toSubSt st
   subDesc <- mkSubDesc subSt
+  hist <- if historyEnabled desc
+             then getHistoryState backend bst >>= return . Just
+             else return Nothing
   subSt'  <- runShell subDesc backend subSt
+  case hist of
+     Nothing -> return ()
+     Just h  -> do
+        setHistoryState backend bst h
+        freeHistoryState backend bst h
   st'     <- fromSubSt subSt'
   return st'
 
@@ -482,7 +556,7 @@ runSubshell (toSubSt, fromSubSt, mkSubDesc) backend st = do
 -- mechanism.
 
 
--- | A shell command which can return shell special commands as well as 
+-- | A shell command which can return shell special commands as well as
 --   modifying the shell state
 newtype FullCommand st   = FullCommand (st -> IO (CommandResult st))
 
@@ -522,7 +596,7 @@ class Completion compl st | compl -> st where
 -------------------------------------------------------------------
 -- | Creates a user defined shell commmand.  This relies on the
 --   typeclass machenery defined by 'CommandFunction'.
-cmd :: CommandFunction f st 
+cmd :: CommandFunction f st
     => String           -- ^ the name of the command
     -> f                -- ^ the command function.  See 'CommandFunction' for restrictions
                         --   on the type of this function.
@@ -542,12 +616,12 @@ cmd name f helpMsg desc =
 -- | This class is used in the 'cmd' function to automaticly generate
 --   the command parsers and command syntax strings for user defined
 --   commands.  The type of 'f' is restricted to have a restricted set of
---   monomorphic arguments ('Bool', 'Int', 'Integer', 'Float', 'Double', 'String', 
+--   monomorphic arguments ('Bool', 'Int', 'Integer', 'Float', 'Double', 'String',
 --   'File', 'Username', and 'Completable') and the head type must be one of the three
 --   types 'FullCommand', 'StateCommand', or 'SimpleCommand'.  For example:
 --
 -- @
---   f :: Int -> File -> FullCommand MyShellState 
+--   f :: Int -> File -> FullCommand MyShellState
 --   g :: Double -> StateCommand MyOtherShellState
 --   h :: SimpleCommand SomeShellState
 -- @
@@ -571,21 +645,21 @@ class CommandFunction f st | f -> st where
 -- Instances for the base cases.
 
 instance CommandFunction (FullCommand st) st where
-  parseCommand wbc (FullCommand f) str = 
+  parseCommand wbc (FullCommand f) str =
          do (x,[]) <- runRegex (maybeSpaceBefore (Epsilon (CompleteParse f))) str
             return x
 
   commandSyntax _ = []
 
 instance CommandFunction (StateCommand st) st where
-  parseCommand wbc (StateCommand f) str = 
+  parseCommand wbc (StateCommand f) str =
          do (x,[]) <- runRegex (maybeSpaceAfter (Epsilon (CompleteParse (\st -> f st >>= return . Right)))) str
             return x
 
   commandSyntax _ = []
 
 instance CommandFunction (SimpleCommand st) st where
-  parseCommand wbc (SimpleCommand f) str = 
+  parseCommand wbc (SimpleCommand f) str =
          do (x,[]) <- runRegex (maybeSpaceAfter (Epsilon (CompleteParse (\st -> f >> return (Right st))))) str
             return x
 
@@ -625,8 +699,8 @@ instance CommandFunction r st
       => CommandFunction (File -> r) st where
   parseCommand wbc = doParseCommand
                         (Just FilenameCompleter)
-                        (wordRegex wbc) 
-                        File 
+                        (wordRegex wbc)
+                        File
                         wbc
   commandSyntax f = text "<file>" : commandSyntax (f undefined)
 
@@ -663,8 +737,9 @@ doParseCommand compl re proj wbc f str =
 commandsRegex :: ShellDescription st -> Regex Char (String,CommandParser st,Doc,Doc)
 commandsRegex desc =
    case commandStyle desc of
-      ColonCommands -> colonCommandsRegex (getShellCommands desc)
-      OnlyCommands  -> onlyCommandsRegex  (getShellCommands desc)
+      ColonCommands      -> colonCommandsRegex     (getShellCommands desc)
+      OnlyCommands       -> onlyCommandsRegex      (getShellCommands desc)
+      SingleCharCommands -> singleCharCommandRegex (getShellCommands desc)
 
 onlyCommandsRegex :: [(String,CommandParser st,Doc,Doc)] -> Regex Char (String,CommandParser st,Doc,Doc)
 onlyCommandsRegex xs =
@@ -678,3 +753,9 @@ colonCommandsRegex xs =
     Concat (\_ x -> x) (strTerminal ':') $
     Concat (\x _ -> x) (anyOfRegex (map (\ (x,y,z,w) -> (x,(x,y,z,w))) xs)) $
                        spaceRegex
+
+singleCharCommandRegex :: [(String,CommandParser st,Doc,Doc)] -> Regex Char (String,CommandParser st,Doc,Doc)
+singleCharCommandRegex xs =
+    altProj
+       (anyOfRegex (map (\ (x,y,z,w) -> ([head x],(x,y,z,w))) xs))
+       (Epsilon ("",\_ -> [CompleteParse (\_ -> return (Left ShellNothing))],empty,empty))

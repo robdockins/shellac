@@ -1,5 +1,5 @@
 Name:           Shellac
-Version:        0.1
+Version:        0.2
 License:        BSD3
 License-File:   LICENSE
 Author:         Robert Dockins
@@ -11,8 +11,7 @@ Hs-Source-Dir:
 Build-Depends:
    base >= 1.0,
    haskell98 >= 1.0,
-   mtl >= 1.0,
-   readline >= 1.0
+   mtl >= 1.0
 Extensions:
    MultiParamTypeClasses
    FunctionalDependencies
