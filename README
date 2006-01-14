@@ -1,6 +1,5 @@
 
-         Shellac 
-        Version 0.1
+        Shellac 
 -========================-
 
 
@@ -8,12 +7,14 @@
 
 Shellac is a framework for building read-eval-print style shells.  
 Shells are created by declaratively defining a set of shell commands
-and an evaluation function.  Shellac builds on the Haskell readline
-bindings found in the standard libraries.  These bindings reflect
-the low-level nature of readline and are not very Haskellish.  This
-library attempts to allow users to write shells in at a high-level
-and still enjoy the advanced features readline provides, like
-command completion, command history and user-defineable keybindings.
+and an evaluation function.  Shellac supports multiple shell backends,
+including a 'basic' backend which uses only Haskell IO primitives and
+a full featured 'readline' backend based on the the Haskell readline
+bindings found in the standard libraries.
+
+This library attempts to allow users to write shells at a high level
+and still enjoy the advanced features that may be avaliable from a
+powerful line editiing package like readline.
 
 
 == Why do I care?
@@ -25,9 +26,11 @@ feature-full shells so you don't have to.
 == How is it licensed?
 
 Shellac is avaliable under a BSD3 license.  See the LICENSE file for
-details.  Be aware, however, that the GNU readline library itself is
-licensed under the GPL.  This library will only be useful to you if
-your project is GPL compatable.  
+details.
+
+Be aware, however, that the GNU readline library itself is
+licensed under the GPL.  If you wish to use the readline bindings,
+your project will need to be GPL compatable.
 
 Go here (http://directory.fsf.org/GNU/readline.html) for more information
 about the readline library.

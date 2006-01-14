@@ -1,6 +1,6 @@
 {-
  - 
- -  Copyright 2005, Robert Dockins.
+ -  Copyright 2005-2006, Robert Dockins.
  -  
  -}
 
@@ -8,14 +8,14 @@
 {- | This module implements a simple Shellac backend that uses only
      the primitaves from "System.IO".  It provides no history or
      command completion capabilities.  You get whatever line editing
-     capabilities hGetLine has and that's it.
+     capabilities 'hGetLine' has and that's it.
 -}
 
 module System.Console.Shell.Backend.Basic
 ( basicBackend
 ) where
 
-import System.IO   ( stdout, stdin, hFlush, hPutStr, hPutStrLn
+import System.IO   ( stdout, stderr, stdin, hFlush, hPutStr, hPutStrLn
 	           , hGetLine, hGetChar, hGetBuffering, hSetBuffering
                    , BufferMode(..)
                    )
@@ -23,9 +23,11 @@ import qualified Control.Exception as Ex
 
 import System.Console.Shell.Backend
 
-basicBackend :: ShellBackend () ()
+basicBackend :: ShellBackend ()
 basicBackend = ShBackend
   { initBackend                      = return ()
+  , outputString                     = \_ str -> hPutStr stdout str
+  , outputErrString                  = \_ str -> hPutStr stderr str
   , flushOutput                      = \_ -> hFlush stdout
   , getSingleChar                    = \_ -> basicGetSingleChar
   , getInput                         = \_ -> basicGetInput
@@ -39,11 +41,8 @@ basicBackend = ShBackend
   , clearHistoryState                = \_ -> return ()
   , getMaxHistoryEntries             = \_ -> return 0
   , setMaxHistoryEntries             = \_ _ -> return ()
-  , getHistoryState                  = \_ -> return ()
-  , setHistoryState                  = \_ _ -> return ()
   , readHistory                      = \_ _ -> return ()
   , writeHistory                     = \_ _ -> return ()
-  , freeHistoryState                 = \_ _ -> return ()
   }
 
 basicGetSingleChar :: String -> IO (Maybe Char)

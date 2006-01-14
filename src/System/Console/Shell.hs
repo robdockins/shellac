@@ -6,19 +6,19 @@
 
 {- | This module implements a framework for creating read-eval-print style
      command shells.  Shells are created by declaratively defining evaluation
-     functions and \"shell commands\".  Input is read using the standard Haskell
-     readline bindings, and the shell framework handles command history and word completion
-     features.
+     functions and \"shell commands\".  Input is read using a plugable backend.
+     The shell framework handles command history and word completion if the
+     backend supports it.
 
-     The basic idea is:
+     The basic idea is for creating a shell is:
 
       (1) Create a list of shell commands and an evaluation function
 
-      (2) Create a shell description
+      (2) Create a shell description (using 'mkShellDescription')
 
       (3) Set up the initial shell state
 
-      (4) Run the shell
+      (4) Run the shell (using 'runShell')
 -}
 
 
@@ -87,9 +87,9 @@ import System.Console.Shell.Backend
 -- | Datatype describing the style of shell commands.  This
 --   determines how shell input is parsed.
 data CommandStyle
-   = OnlyCommands   -- ^ Indicates that all input is to be interpreted as shell commands; no
-                    --   input will be passed to the evaluation function.
-   | ColonCommands  -- ^ Indicates that commands are prefaced with a colon ':' character.
+   = OnlyCommands       -- ^ Indicates that all input is to be interpreted as shell commands; no
+                        --   input will be passed to the evaluation function.
+   | ColonCommands      -- ^ Indicates that commands are prefaced with a colon ':' character.
    | SingleCharCommands -- ^ Commands consisit of a single character
 
 -- | The type of results from shell commands.  They are either
@@ -107,7 +107,7 @@ data ShellSpecial st
   = ShellExit                  -- ^ Causes the shell to exit
   | ShellHelp (Maybe String)   -- ^ Causes the shell to print an informative message.
                                --   If a command name is specified, only information about
-                               --   that command will be displayed.
+                               --   that command will be displayed
   | ShellNothing               -- ^ Instructs the shell to do nothing; redisplay the prompt and continue
   | forall st'. ExecSubshell
       (Subshell st st')        -- ^ Causes the shell to execute a subshell
@@ -119,10 +119,13 @@ data CommandCompleter st
 
 -- | The result of parsing a command.
 data CommandParseResult st
+
   = CompleteParse (st -> IO (CommandResult st))
           -- ^ A complete parse.  A command function is returned.
+
   | IncompleteParse (Maybe (CommandCompleter st))
           -- ^ An incomplete parse.  A word completion function may be returned.
+
 
 -- | The type of a command parser.
 type CommandParser st = String -> [CommandParseResult st]
@@ -155,16 +158,19 @@ data ShellDescription st
    { shellCommands      :: [ShellCommand st]        -- ^ Commands for this shell
    , commandStyle       :: CommandStyle             -- ^ The style of shell commands
    , evaluateFunc       :: EvaluationFunction st    -- ^ The evaluation function for this shell
-   , wordBreakChars     :: [Char]                   -- ^ The characters upon which readline will break words
+   , wordBreakChars     :: [Char]                   -- ^ The characters upon which the backend will break words
    , beforePrompt       :: st -> IO ()              -- ^ an IO action to run before each prompt is printed
    , prompt             :: String                   -- ^ The prompt to print
-   , exceptionHandler   :: Ex.Exception -> st -> IO st -- ^ A function called when an exception occurs
-   , defaultCompletions :: Maybe (st -> String -> IO [String])
-                                                    -- ^ If set, this function provides completions when NOT
+   , exceptionHandler   :: Ex.Exception 
+                         -> st -> IO st             -- ^ A function called when an exception occurs
+   , defaultCompletions :: Maybe (st -> String 
+                                  -> IO [String])   -- ^ If set, this function provides completions when NOT
                                                     --   in the context of a shell command
-   , historyFile        :: Maybe FilePath
-   , maxHistoryEntries  :: Int
-   , historyEnabled     :: Bool
+   , historyFile        :: Maybe FilePath           -- ^ If set, this provides the path to a file to contain a
+                                                    --   history of entered shell commands
+   , maxHistoryEntries  :: Int                      -- ^ The maximum number of history entries to maintain
+   , historyEnabled     :: Bool                     -- ^ If true, the history mechanism of the backend (if any)
+                                                    --   will be used; false will disable history features.
    }
 
 -- | A basic shell description with sane initial values
@@ -198,36 +204,38 @@ mkShellDescription cmds func =
 
 -------------------------------------------------------------------
 -- A record to hold some of the internal muckety-muck needed
--- to make the shell go
-
+-- to make the shell go.  This is mostly concurrency variables
+-- needed to handle keyboard interrupts.
 
 data InternalShellState st bst
    = InternalShellState
-     { evalTVar        :: TVar (Maybe (Either (ShellSpecial st) st))
-     , evalThreadTVar  :: TVar (Maybe ThreadId)
-     , evalCancelTVar  :: TVar Bool
+     { evalTVar         :: TVar (Maybe (Either (ShellSpecial st) st))
+     , evalThreadTVar   :: TVar (Maybe ThreadId)
+     , evalCancelTVar   :: TVar Bool
      , cancelHandler    :: Handler
      , backendState     :: bst
      }
 
+
 -------------------------------------------------------------------
 -- Main entry point for the shell.  Sets up the crap needed to
--- run shell commands and evaluation in a separate thread.
+-- run shell commands and evaluation in a separate thread and 
+-- initializes the backend.
 
 
--- | Run a shell.  Given a shell description and an initial state
---   this function runs the shell until it exits, and then returns
---   the final state.
+-- | Run a shell.  Given a shell description, a shell backend to use
+--   and an initial state this function runs the shell until it exits,
+--   and then returns the final state.
 
 runShell :: ShellDescription st
-         -> ShellBackend bst hist
+         -> ShellBackend bst
          -> st
          -> IO st
 
 runShell desc backend init = Ex.bracket setupShell exitShell (\iss -> shellLoop desc backend iss init)
 
-  where setupShell  =
-         do evalVar   <- atomically (newTVar Nothing)
+  where setupShell = do
+            evalVar   <- atomically (newTVar Nothing)
             thVar     <- atomically (newTVar Nothing)
             cancelVar <- atomically (newTVar False)
             bst       <- initBackend backend
@@ -251,7 +259,7 @@ runShell desc backend init = Ex.bracket setupShell exitShell (\iss -> shellLoop 
 	    flushOutput backend (backendState iss)
 
         handleINT evalVar cancelVar thVar = do
-          maybeTid <- atomically (do
+            maybeTid <- atomically (do
  	    	         result <- readTVar evalVar
 	                 if isJust result
                             then return Nothing
@@ -263,21 +271,21 @@ runShell desc backend init = Ex.bracket setupShell exitShell (\iss -> shellLoop 
                                        Just tid -> return (Just tid))
 
 
-          case maybeTid of
-             Nothing  -> return ()
-             Just tid -> killThread tid
+            case maybeTid of
+               Nothing  -> return ()
+               Just tid -> killThread tid
 
 
 -------------------------------------------------------------------------
--- This function is installed as the readline completion function
+-- This function is installed as the attempted completion function.
 -- It attempts to match the prefix of the input buffer against a
 -- command.  If it matches, it supplies the completions appropriate
 -- for that point in the command.  Otherwise it returns Nothing; in
--- that case, readline will fall back on the default completion function
+-- that case, the backend will fall back on the default completion function
 -- set in the shell description.
 
 completionFunction :: ShellDescription st
-                   -> ShellBackend bst hist
+                   -> ShellBackend bst
                    -> bst
                    -> st
                    -> (String,String,String)
@@ -332,7 +340,7 @@ maximalPrefix (x:xs) = f x xs
 -- Deal with reading and writing history files.
 
 loadHistory :: ShellDescription st
-            -> ShellBackend bst hist
+            -> ShellBackend bst
             -> bst
             -> IO ()
 
@@ -342,11 +350,11 @@ loadHistory desc backend bst =
      Just path -> do
         fexists <- doesFileExist path
         when fexists $
-           Ex.handle (\ex -> putStrLn $ concat ["could not read history file '",path,"'\n   ",show ex])
+           Ex.handle (\ex -> (outputErrString backend bst) $ concat ["could not read history file '",path,"'\n   ",show ex])
              (readHistory backend bst path)
 
 saveHistory :: ShellDescription st
-            -> ShellBackend bst hist
+            -> ShellBackend bst
             -> bst
             -> IO ()
 
@@ -354,7 +362,7 @@ saveHistory desc backend bst =
   case historyFile desc of
     Nothing   -> return ()
     Just path ->
-       Ex.handle (\ex -> putStrLn $ concat ["could not write history file '",path,"'\n    ",show ex])
+       Ex.handle (\ex -> (outputErrString backend bst) $ concat ["could not write history file '",path,"'\n    ",show ex])
           (writeHistory backend bst path)
 
 
@@ -364,7 +372,7 @@ saveHistory desc backend bst =
 
 
 shellLoop :: ShellDescription st
-          -> ShellBackend bst hist
+          -> ShellBackend bst
           -> InternalShellState st bst
           -> st
           -> IO st
@@ -553,7 +561,7 @@ simpleSubshell toSubSt desc = do
 -- | Execute a subshell, suspending the outer shell until the subshell exits.
 runSubshell :: ShellDescription desc -- ^ the description of the outer shell
             -> Subshell st st'       -- ^ the subshell to execute
-            -> ShellBackend bst hist -- ^ the shell backend to use
+            -> ShellBackend bst      -- ^ the shell backend to use
             -> bst                   -- ^ the backendstate
             -> st                    -- ^ the current state
             -> IO st                 -- ^ the modified state
@@ -562,15 +570,7 @@ runSubshell :: ShellDescription desc -- ^ the description of the outer shell
 runSubshell desc (toSubSt, fromSubSt, mkSubDesc) backend bst st = do
   subSt   <- toSubSt st
   subDesc <- mkSubDesc subSt
-  hist <- if historyEnabled desc
-             then getHistoryState backend bst >>= return . Just
-             else return Nothing
   subSt'  <- runShell subDesc backend subSt
-  case hist of
-     Nothing -> return ()
-     Just h  -> do
-        setHistoryState backend bst h
-        freeHistoryState backend bst h
   st'     <- fromSubSt subSt'
   return st'
 
@@ -640,7 +640,7 @@ cmd name f helpMsg desc =
 ------------------------------------------------------------------------------
 -- | This class is used in the 'cmd' function to automaticly generate
 --   the command parsers and command syntax strings for user defined
---   commands.  The type of 'f' is restricted to have a restricted set of
+--   commands.  The type of \'f\' is restricted to have a restricted set of
 --   monomorphic arguments ('Bool', 'Int', 'Integer', 'Float', 'Double', 'String',
 --   'File', 'Username', and 'Completable') and the head type must be one of the three
 --   types 'FullCommand', 'StateCommand', or 'SimpleCommand'.  For example:
