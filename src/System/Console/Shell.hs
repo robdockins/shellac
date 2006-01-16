@@ -65,6 +65,7 @@ module System.Console.Shell (
 , CommandStyle (..)
 , ShellSpecial (..)
 , EvaluationFunction
+, OutputCommand
 ) where
 
 import Maybe                       ( isJust )
@@ -84,6 +85,7 @@ import System.Console.Shell.PPrint
 import System.Console.Shell.Regex
 import System.Console.Shell.Backend
 
+
 -- | Datatype describing the style of shell commands.  This
 --   determines how shell input is parsed.
 data CommandStyle
@@ -92,15 +94,41 @@ data CommandStyle
    | ColonCommands      -- ^ Indicates that commands are prefaced with a colon ':' character.
    | SingleCharCommands -- ^ Commands consisit of a single character
 
--- | The type of results from shell commands.  They are either
---   a \"special\" action for the shell framework to execute, or
---   a modified shell state.
-type CommandResult st = Either (ShellSpecial st) st
+
+
+
+-- | The type of results from shell commands.  They are a modified
+--   shell state and possibly a shell \"special\" action to execute.
+
+type CommandResult st = (st,Maybe (ShellSpecial st))
+
+
+-- | The type of commands which produce output on the shell console.
+
+type OutputCommand = String -> IO ()
+
 
 -- | The type of an evaluation function for a shell.  The function
---   takes the input string and the current shell state, and returns
---   a possibly modified shell state.
-type EvaluationFunction st = String -> st -> IO (Either (ShellSpecial st) st)
+--   takes three arguments:
+--
+--   1) An output function -- this function writes a string to the 
+--      shell "console".  Use this function rather than putStr and friends.
+--
+--   2) The input string
+--
+--   3) The current shell state
+--
+--   Evaluation functions should return the new shell state and
+--   possibly a shell special action to execute.
+
+type EvaluationFunction st  = OutputCommand
+                           -> String 
+                           -> st
+                           -> IO (st,Maybe (ShellSpecial st))
+
+
+
+
 
 -- | Special commands for the shell framework.
 data ShellSpecial st
@@ -120,7 +148,7 @@ data CommandCompleter st
 -- | The result of parsing a command.
 data CommandParseResult st
 
-  = CompleteParse (st -> IO (CommandResult st))
+  = CompleteParse (OutputCommand -> st -> IO (CommandResult st))
           -- ^ A complete parse.  A command function is returned.
 
   | IncompleteParse (Maybe (CommandCompleter st))
@@ -159,10 +187,14 @@ data ShellDescription st
    , commandStyle       :: CommandStyle             -- ^ The style of shell commands
    , evaluateFunc       :: EvaluationFunction st    -- ^ The evaluation function for this shell
    , wordBreakChars     :: [Char]                   -- ^ The characters upon which the backend will break words
-   , beforePrompt       :: st -> IO ()              -- ^ an IO action to run before each prompt is printed
+   , beforePrompt       :: OutputCommand
+                        -> st 
+                        -> IO ()                    -- ^ an IO action to run before each prompt is printed
    , prompt             :: String                   -- ^ The prompt to print
-   , exceptionHandler   :: Ex.Exception 
-                         -> st -> IO st             -- ^ A function called when an exception occurs
+   , exceptionHandler   :: OutputCommand
+                        -> Ex.Exception 
+                        -> st 
+                        -> IO st                    -- ^ A function called when an exception occurs
    , defaultCompletions :: Maybe (st -> String 
                                   -> IO [String])   -- ^ If set, this function provides completions when NOT
                                                     --   in the context of a shell command
@@ -180,9 +212,9 @@ initialShellDescription =
      return ShDesc
        { shellCommands      = []
        , commandStyle       = ColonCommands
-       , evaluateFunc       = \_ st -> return (Right st)
+       , evaluateFunc       = \_ _ st -> return (st,Nothing)
        , wordBreakChars     = wbc
-       , beforePrompt       = \_ -> putStrLn ""
+       , beforePrompt       = \putCmd _ -> putCmd ""
        , prompt             = "> "
        , exceptionHandler   = defaultExceptionHandler
        , defaultCompletions = Just (\_ _ -> return [])
@@ -193,7 +225,10 @@ initialShellDescription =
 
 -- | Creates a simple shell description from a list of shell commmands and
 --   an evalation function.
-mkShellDescription :: [ShellCommand st] -> EvaluationFunction st -> IO (ShellDescription st)
+mkShellDescription :: [ShellCommand st]
+                   -> EvaluationFunction st 
+                   -> IO (ShellDescription st)
+
 mkShellDescription cmds func =
    do desc <- initialShellDescription
       return desc
@@ -209,7 +244,7 @@ mkShellDescription cmds func =
 
 data InternalShellState st bst
    = InternalShellState
-     { evalTVar         :: TVar (Maybe (Either (ShellSpecial st) st))
+     { evalTVar         :: TVar (Maybe (st,Maybe (ShellSpecial st)))
      , evalThreadTVar   :: TVar (Maybe ThreadId)
      , evalCancelTVar   :: TVar Bool
      , cancelHandler    :: Handler
@@ -371,7 +406,8 @@ saveHistory desc backend bst =
 -- to get the input string, and then handle the input.
 
 
-shellLoop :: ShellDescription st
+shellLoop :: forall st bst
+           . ShellDescription st
           -> ShellBackend bst
           -> InternalShellState st bst
           -> st
@@ -380,9 +416,12 @@ shellLoop :: ShellDescription st
 shellLoop desc backend iss init = loop init
  where
    bst = backendState iss
+
+   loop :: st -> IO st
+
    loop st =
      do flushOutput backend bst
-        beforePrompt desc st
+        beforePrompt desc (outputString backend bst) st
         setAttemptedCompletionFunction backend bst
 	      (completionFunction desc backend bst st)
 
@@ -405,6 +444,8 @@ shellLoop desc backend iss init = loop init
            Nothing   -> return st
            Just inp' -> handleInput inp' st
 
+
+   handleInput :: String -> st -> IO st
    handleInput inp st = do
      when (historyEnabled desc && (isJust (find (not . isSpace) inp)))
           (addHistory backend bst inp)
@@ -416,30 +457,51 @@ shellLoop desc backend iss init = loop init
        []          -> evaluateInput inp st
 
 
-
+   executeCommand :: (String,CommandParser st,Doc,Doc) -> String -> st -> IO st
    executeCommand (cmdName,cmdParser,_,_) inp st =
       let parses  = cmdParser inp
           parses' = concatMap (\x -> case x of CompleteParse z -> [z]; _ -> []) parses
       in case parses' of
           f:_ -> do
-              r <- handleExceptions desc f (return . Right) st
+              r <- handleExceptions desc (f (outputString backend bst)) st
               case r of
-                  Left spec -> handleSpecial st spec
-                  Right st' -> loop st'
-          _   -> putStrLn (showCmdHelp desc cmdName) >> loop st
+                  (st',Just spec) -> handleSpecial st' spec
+                  (st',Nothing)   -> loop st'
 
+          _   -> outputString backend bst (showCmdHelp desc cmdName) >> loop st
+
+   handleSpecial :: st -> ShellSpecial st -> IO st
    handleSpecial st ShellExit               = return st
    handleSpecial st ShellNothing            = loop st
-   handleSpecial st (ShellHelp Nothing)     = putStrLn (showShellHelp desc)   >> loop st
-   handleSpecial st (ShellHelp (Just cmd))  = putStrLn (showCmdHelp desc cmd) >> loop st
+   handleSpecial st (ShellHelp Nothing)     = outputString backend bst (showShellHelp desc)   >> loop st
+   handleSpecial st (ShellHelp (Just cmd))  = outputString backend bst (showCmdHelp desc cmd) >> loop st
    handleSpecial st (ExecSubshell subshell) = runSubshell desc subshell backend bst st >>= loop
 
+   handleExceptions :: ShellDescription st 
+                    -> (st -> IO (st,Maybe (ShellSpecial st))) 
+                    -> st 
+                    -> IO (st,Maybe (ShellSpecial st))
+   handleExceptions desc f st = Ex.catch (f st) $ \ex -> do
+      st' <- (exceptionHandler desc) (outputString backend bst) ex st
+      return (st',Nothing)
+
+
+   runThread :: EvaluationFunction st
+             -> String
+             -> InternalShellState st bst 
+             -> st 
+             -> IO ()
+
    runThread eval inp iss st = do
-      val <- handleExceptions desc (eval inp) (return . Right) st
+      val <- handleExceptions desc (eval (outputString backend bst) inp) st
       atomically (do
          cancled <- readTVar (evalCancelTVar iss)
 	 if cancled then return () else do
            writeTVar (evalTVar iss) (Just val))
+
+   evaluateInput :: String
+                 -> st
+                 -> IO st
 
    evaluateInput inp st =
      let eVar = evalTVar iss
@@ -462,19 +524,9 @@ shellLoop desc backend iss init = loop init
                        Just r  -> return (Just r)))
 
            case result of
-             Nothing          -> putStrLn "canceled..." >> loop st
-             Just (Left spec) -> handleSpecial st spec
-             Just (Right st') -> loop st'
-
-
-------------------------------------------------------------------------
--- Keeps exceptions from bubbling out to the main shell loop and killing it.
--- We invoke the exception handler from the shell description.
-
-handleExceptions :: ShellDescription st -> (st -> IO a) -> (st -> IO a) -> st -> IO a
-handleExceptions desc m f st = Ex.catch (m st) $ \ex -> do
-   st' <- (exceptionHandler desc) ex st
-   f st'
+             Nothing              -> onCancel backend bst >> loop st
+             Just (st',Just spec) -> handleSpecial st' spec
+             Just (st',Nothing)   -> loop st'
 
 -------------------------------------------------------------------------
 -- | The default shell exception handler.  It simply prints the exception
@@ -482,11 +534,11 @@ handleExceptions desc m f st = Ex.catch (m st) $ \ex -> do
 --   ignores the thread killed exception, because that is used to
 --   implement execution canceling)
 
-defaultExceptionHandler :: Ex.Exception -> st -> IO st
+defaultExceptionHandler :: OutputCommand -> Ex.Exception -> st -> IO st
 
-defaultExceptionHandler (Ex.AsyncException Ex.ThreadKilled) st = return st
-defaultExceptionHandler ex st = do
-  putStrLn $ concat ["The following exception occurred:\n   ",show ex]
+defaultExceptionHandler putCmd (Ex.AsyncException Ex.ThreadKilled) st = return st
+defaultExceptionHandler putCmd ex st = do
+  putCmd $ concat ["The following exception occurred:\n   ",show ex]
   return st
 
 
@@ -496,7 +548,7 @@ defaultExceptionHandler ex st = do
 
 showShellHelp :: ShellDescription st -> String
 
-showShellHelp desc = show (commandHelpDoc desc (getShellCommands desc))
+showShellHelp desc = show (commandHelpDoc desc (getShellCommands desc)) ++ "\n"
 
 
 -------------------------------------------------------------------------
@@ -506,8 +558,8 @@ showCmdHelp :: ShellDescription st -> String -> String
 
 showCmdHelp desc cmd =
   case cmds of
-     [_] -> show (commandHelpDoc desc cmds)
-     _   -> show (text "bad command name: " <> squotes (text cmd))
+     [_] -> show (commandHelpDoc desc cmds) ++ "\n"
+     _   -> show (text "bad command name: " <> squotes (text cmd)) ++ "\n"
 
  where cmds = filter (\ (n,_,_,_) -> n == cmd) (getShellCommands desc)
 
@@ -524,7 +576,7 @@ commandHelpDoc desc cmds =
 exitCommand :: String            -- ^ the name of the command
             -> ShellCommand st
 exitCommand name desc = ( name
-                        , \_ -> [CompleteParse (\_ -> return (Left ShellExit))]
+                        , \_ -> [CompleteParse (\_ st -> return (st,Just ShellExit))]
                         , text (maybeColon desc) <> text name
                         , text "Exit the shell"
                         )
@@ -535,7 +587,7 @@ exitCommand name desc = ( name
 helpCommand :: String           -- ^ the name of the command
             -> ShellCommand st
 helpCommand name desc = ( name
-                        , \_ -> [CompleteParse (\_ -> return (Left (ShellHelp Nothing)))]
+                        , \_ -> [CompleteParse (\_ st -> return (st,Just (ShellHelp Nothing)))]
                         , text (maybeColon desc) <> text name
                         , text "Display the shell command help"
                         )
@@ -583,13 +635,13 @@ runSubshell desc (toSubSt, fromSubSt, mkSubDesc) backend bst st = do
 
 -- | A shell command which can return shell special commands as well as
 --   modifying the shell state
-newtype FullCommand st   = FullCommand (st -> IO (CommandResult st))
+newtype FullCommand st   = FullCommand (OutputCommand -> st -> IO (CommandResult st))
 
 -- | A shell command which can modify the shell state.
-newtype StateCommand st  = StateCommand (st -> IO st)
+newtype StateCommand st  = StateCommand (OutputCommand -> st -> IO st)
 
 -- | A shell command which does not alter the shell state.
-newtype SimpleCommand st = SimpleCommand (IO ())
+newtype SimpleCommand st = SimpleCommand (OutputCommand -> IO ())
 
 -- | Represents a command argument which is a filename
 newtype File = File String
@@ -678,14 +730,14 @@ instance CommandFunction (FullCommand st) st where
 
 instance CommandFunction (StateCommand st) st where
   parseCommand wbc (StateCommand f) str =
-         do (x,[]) <- runRegex (maybeSpaceAfter (Epsilon (CompleteParse (\st -> f st >>= return . Right)))) str
+         do (x,[]) <- runRegex (maybeSpaceAfter (Epsilon (CompleteParse (\putCmd st -> f putCmd st >>= \st' -> return (st',Nothing))))) str
             return x
 
   commandSyntax _ = []
 
 instance CommandFunction (SimpleCommand st) st where
   parseCommand wbc (SimpleCommand f) str =
-         do (x,[]) <- runRegex (maybeSpaceAfter (Epsilon (CompleteParse (\st -> f >> return (Right st))))) str
+         do (x,[]) <- runRegex (maybeSpaceAfter (Epsilon (CompleteParse (\putCmd st -> f putCmd >> return (st,Nothing))))) str
             return x
 
   commandSyntax _ = []
@@ -783,4 +835,4 @@ singleCharCommandRegex :: [(String,CommandParser st,Doc,Doc)] -> Regex Char (Str
 singleCharCommandRegex xs =
     altProj
        (anyOfRegex (map (\ (x,y,z,w) -> ([head x],(x,y,z,w))) xs))
-       (Epsilon ("",\_ -> [CompleteParse (\_ -> return (Left ShellNothing))],empty,empty))
+       (Epsilon ("",\_ -> [CompleteParse (\_ st -> return (st,Just ShellNothing))],empty,empty))
