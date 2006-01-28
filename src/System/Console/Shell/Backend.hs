@@ -28,6 +28,11 @@ module System.Console.Shell.Backend where
 type CompletionFunction = (String,String,String) 
                         -> IO (Maybe (String, [String]))
 
+data BackendOutput
+   = RegularOutput String
+   | InfoOutput String
+   | ErrorOutput String
+
 data ShellBackend bst
    = ShBackend
      { initBackend                    :: IO bst
@@ -36,15 +41,8 @@ data ShellBackend bst
          --   shell instance.  The generated value will be passed back in to each call of the
          --   other methods in this record.
 
-     , outputString                   :: bst -> String -> IO ()
-         -- ^ Causes the string to be sent to the underlying console device.  Output may
-         --   or may not be buffered.  (This is currently not used by Shellac, but is here
-         --   because I anticipate funneling all shell output through this function in future
-         --   versions.)
-
-     , outputErrString                :: bst -> String -> IO ()
-         -- ^ Causes the string to be sent to the underlying console device as an error.  On
-         --   POSIX systems this should mean stderr, and output should not be buffered.
+     , outputString                   :: bst -> BackendOutput -> IO ()
+         -- ^ Causes the string to be sent to the underlying console device.
 
      , flushOutput                    :: bst -> IO ()
          -- ^ Perform any operations necessary to clear any output buffers.  After this

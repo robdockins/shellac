@@ -61,6 +61,14 @@ module System.Console.Shell (
 , showShellHelp
 , showCmdHelp
 
+-- * Generating text output
+, shellPutStr
+, shellPutStrLn
+, shellPutInfo
+, shellPutInfoLn
+, shellPutErr
+, shellPutErrLn
+
 -- * Type Synonyms and Auxiliary Types
 , CommandStyle (..)
 , ShellSpecial (..)
@@ -105,7 +113,34 @@ type CommandResult st = (st,Maybe (ShellSpecial st))
 
 -- | The type of commands which produce output on the shell console.
 
-type OutputCommand = String -> IO ()
+type OutputCommand = BackendOutput -> IO ()
+
+
+-- | Prints a regular output string
+shellPutStr :: OutputCommand -> String -> IO ()
+shellPutStr outCmd str = outCmd (RegularOutput str)
+
+
+-- | Prints a regular output string with a line terminator
+shellPutStrLn :: OutputCommand -> String -> IO ()
+shellPutStrLn outCmd str = outCmd (RegularOutput (str++"\n"))
+
+-- | Prints an informational output string
+shellPutInfo :: OutputCommand -> String -> IO ()
+shellPutInfo outCmd str = outCmd (InfoOutput str)
+
+-- | Prints an informational output string with a line terminator
+shellPutInfoLn :: OutputCommand -> String -> IO ()
+shellPutInfoLn outCmd str = outCmd (InfoOutput (str++"\n"))
+
+-- | Prints an error output string
+shellPutErr :: OutputCommand -> String -> IO ()
+shellPutErr outCmd str = outCmd (ErrorOutput str)
+
+-- | Prints and error output string with a line terminator
+shellPutErrLn :: OutputCommand -> String -> IO ()
+shellPutErrLn outCmd str = outCmd (ErrorOutput (str++"\n"))
+
 
 
 -- | The type of an evaluation function for a shell.  The function
@@ -214,7 +249,7 @@ initialShellDescription =
        , commandStyle       = ColonCommands
        , evaluateFunc       = \_ _ st -> return (st,Nothing)
        , wordBreakChars     = wbc
-       , beforePrompt       = \putCmd _ -> putCmd ""
+       , beforePrompt       = \_ _ -> return ()
        , prompt             = "> "
        , exceptionHandler   = defaultExceptionHandler
        , defaultCompletions = Just (\_ _ -> return [])
@@ -385,7 +420,9 @@ loadHistory desc backend bst =
      Just path -> do
         fexists <- doesFileExist path
         when fexists $
-           Ex.handle (\ex -> (outputErrString backend bst) $ concat ["could not read history file '",path,"'\n   ",show ex])
+           Ex.handle
+             (\ex -> shellPutErrLn (outputString backend bst) $
+                 concat ["could not read history file '",path,"'\n   ",show ex])
              (readHistory backend bst path)
 
 saveHistory :: ShellDescription st
@@ -397,7 +434,9 @@ saveHistory desc backend bst =
   case historyFile desc of
     Nothing   -> return ()
     Just path ->
-       Ex.handle (\ex -> (outputErrString backend bst) $ concat ["could not write history file '",path,"'\n    ",show ex])
+       Ex.handle 
+          (\ex -> shellPutErrLn (outputString backend bst) $
+                 concat ["could not write history file '",path,"'\n    ",show ex])
           (writeHistory backend bst path)
 
 
@@ -468,13 +507,13 @@ shellLoop desc backend iss init = loop init
                   (st',Just spec) -> handleSpecial st' spec
                   (st',Nothing)   -> loop st'
 
-          _   -> outputString backend bst (showCmdHelp desc cmdName) >> loop st
+          _   -> shellPutInfoLn (outputString backend bst) (showCmdHelp desc cmdName) >> loop st
 
    handleSpecial :: st -> ShellSpecial st -> IO st
    handleSpecial st ShellExit               = return st
    handleSpecial st ShellNothing            = loop st
-   handleSpecial st (ShellHelp Nothing)     = outputString backend bst (showShellHelp desc)   >> loop st
-   handleSpecial st (ShellHelp (Just cmd))  = outputString backend bst (showCmdHelp desc cmd) >> loop st
+   handleSpecial st (ShellHelp Nothing)     = shellPutInfoLn (outputString backend bst) (showShellHelp desc)   >> loop st
+   handleSpecial st (ShellHelp (Just cmd))  = shellPutInfoLn (outputString backend bst) (showCmdHelp desc cmd) >> loop st
    handleSpecial st (ExecSubshell subshell) = runSubshell desc subshell backend bst st >>= loop
 
    handleExceptions :: ShellDescription st 
@@ -536,9 +575,9 @@ shellLoop desc backend iss init = loop init
 
 defaultExceptionHandler :: OutputCommand -> Ex.Exception -> st -> IO st
 
-defaultExceptionHandler putCmd (Ex.AsyncException Ex.ThreadKilled) st = return st
-defaultExceptionHandler putCmd ex st = do
-  putCmd $ concat ["The following exception occurred:\n   ",show ex]
+defaultExceptionHandler outCmd (Ex.AsyncException Ex.ThreadKilled) st = return st
+defaultExceptionHandler outCmd ex st = do
+  shellPutErrLn outCmd $ concat ["The following exception occurred:\n   ",show ex]
   return st
 
 
@@ -730,14 +769,14 @@ instance CommandFunction (FullCommand st) st where
 
 instance CommandFunction (StateCommand st) st where
   parseCommand wbc (StateCommand f) str =
-         do (x,[]) <- runRegex (maybeSpaceAfter (Epsilon (CompleteParse (\putCmd st -> f putCmd st >>= \st' -> return (st',Nothing))))) str
+         do (x,[]) <- runRegex (maybeSpaceAfter (Epsilon (CompleteParse (\outCmd st -> f outCmd st >>= \st' -> return (st',Nothing))))) str
             return x
 
   commandSyntax _ = []
 
 instance CommandFunction (SimpleCommand st) st where
   parseCommand wbc (SimpleCommand f) str =
-         do (x,[]) <- runRegex (maybeSpaceAfter (Epsilon (CompleteParse (\putCmd st -> f putCmd >> return (st,Nothing))))) str
+         do (x,[]) <- runRegex (maybeSpaceAfter (Epsilon (CompleteParse (\outCmd st -> f outCmd >> return (st,Nothing))))) str
             return x
 
   commandSyntax _ = []

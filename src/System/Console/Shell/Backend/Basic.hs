@@ -26,8 +26,7 @@ import System.Console.Shell.Backend
 basicBackend :: ShellBackend ()
 basicBackend = ShBackend
   { initBackend                      = return ()
-  , outputString                     = \_ str -> hPutStr stdout str
-  , outputErrString                  = \_ str -> hPutStr stderr str
+  , outputString                     = \_ -> basicOutput 
   , flushOutput                      = \_ -> hFlush stdout
   , getSingleChar                    = \_ -> basicGetSingleChar
   , getInput                         = \_ -> basicGetInput
@@ -62,3 +61,8 @@ basicGetInput prompt = do
    hFlush stdout
    x <- hGetLine stdin
    return (Just x)
+
+basicOutput :: BackendOutput -> IO ()
+basicOutput (RegularOutput out) = hPutStr stdout out
+basicOutput (InfoOutput out)    = hPutStr stdout out
+basicOutput (ErrorOutput out)   = hPutStr stderr out
