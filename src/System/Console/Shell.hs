@@ -97,11 +97,11 @@ import System.Console.Shell.Backend
 -- | Datatype describing the style of shell commands.  This
 --   determines how shell input is parsed.
 data CommandStyle
-   = OnlyCommands       -- ^ Indicates that all input is to be interpreted as shell commands; no
-                        --   input will be passed to the evaluation function.
-   | ColonCommands      -- ^ Indicates that commands are prefaced with a colon ':' character.
-   | SingleCharCommands -- ^ Commands consisit of a single character
-
+   = OnlyCommands            -- ^ Indicates that all input is to be interpreted as shell commands; no
+                             --   input will be passed to the evaluation function.
+   | CharPrefixCommands Char -- ^ Indicates that commands are prefixed with a particular character
+                             --   Colon \':\' is the default charcter (a la GHCi).
+   | SingleCharCommands      -- ^ Commands consisit of a single character
 
 
 
@@ -160,7 +160,6 @@ type EvaluationFunction st  = OutputCommand
                            -> String 
                            -> st
                            -> IO (st,Maybe (ShellSpecial st))
-
 
 
 
@@ -246,7 +245,7 @@ initialShellDescription =
   do let wbc = " \t\n\r\v`~!@#$%^&*()=[]{};\\\'\",<>"
      return ShDesc
        { shellCommands      = []
-       , commandStyle       = ColonCommands
+       , commandStyle       = CharPrefixCommands ':'
        , evaluateFunc       = \_ _ st -> return (st,Nothing)
        , wordBreakChars     = wbc
        , beforePrompt       = \_ _ -> return ()
@@ -391,10 +390,10 @@ completeCommands desc (before,word,after) =
        xs -> return $ Just (maximalPrefix xs,xs)
 
   where matchingNames = filter (word `isPrefixOf`) cmdNames
-        cmdNames      = map (\ (n,_,_,_) -> (maybeColon desc)++n) (getShellCommands desc)
+        cmdNames      = map (\ (n,_,_,_) -> (maybePrefix desc)++n) (getShellCommands desc)
 
-maybeColon :: ShellDescription st -> String
-maybeColon desc = case commandStyle desc of ColonCommands -> ":"; _ -> ""
+maybePrefix :: ShellDescription st -> String
+maybePrefix desc = case commandStyle desc of CharPrefixCommands x -> [x]; _ -> ""
 
 getShellCommands desc = map ($ desc) (shellCommands desc)
 
@@ -616,7 +615,7 @@ exitCommand :: String            -- ^ the name of the command
             -> ShellCommand st
 exitCommand name desc = ( name
                         , \_ -> [CompleteParse (\_ st -> return (st,Just ShellExit))]
-                        , text (maybeColon desc) <> text name
+                        , text (maybePrefix desc) <> text name
                         , text "Exit the shell"
                         )
 
@@ -627,7 +626,7 @@ helpCommand :: String           -- ^ the name of the command
             -> ShellCommand st
 helpCommand name desc = ( name
                         , \_ -> [CompleteParse (\_ st -> return (st,Just (ShellHelp Nothing)))]
-                        , text (maybeColon desc) <> text name
+                        , text (maybePrefix desc) <> text name
                         , text "Display the shell command help"
                         )
 
@@ -723,7 +722,7 @@ cmd :: CommandFunction f st
 cmd name f helpMsg desc =
       ( name
       , parseCommand (wordBreakChars desc) f
-      , text (maybeColon desc) <> text name <+> hsep (commandSyntax f)
+      , text (maybePrefix desc) <> text name <+> hsep (commandSyntax f)
       , text helpMsg
       )
 
@@ -853,9 +852,9 @@ doParseCommand compl re proj wbc f str =
 commandsRegex :: ShellDescription st -> Regex Char (String,CommandParser st,Doc,Doc)
 commandsRegex desc =
    case commandStyle desc of
-      ColonCommands      -> colonCommandsRegex     (getShellCommands desc)
-      OnlyCommands       -> onlyCommandsRegex      (getShellCommands desc)
-      SingleCharCommands -> singleCharCommandRegex (getShellCommands desc)
+      CharPrefixCommands ch -> prefixCommandsRegex ch (getShellCommands desc)
+      OnlyCommands          -> onlyCommandsRegex      (getShellCommands desc)
+      SingleCharCommands    -> singleCharCommandRegex (getShellCommands desc)
 
 onlyCommandsRegex :: [(String,CommandParser st,Doc,Doc)] -> Regex Char (String,CommandParser st,Doc,Doc)
 onlyCommandsRegex xs =
@@ -863,10 +862,10 @@ onlyCommandsRegex xs =
     Concat (\x _ -> x) (anyOfRegex (map (\ (x,y,z,w) -> (x,(x,y,z,w))) xs)) $
                        spaceRegex
 
-colonCommandsRegex :: [(String,CommandParser st,Doc,Doc)] -> Regex Char (String,CommandParser st,Doc,Doc)
-colonCommandsRegex xs =
+prefixCommandsRegex :: Char -> [(String,CommandParser st,Doc,Doc)] -> Regex Char (String,CommandParser st,Doc,Doc)
+prefixCommandsRegex ch xs =
     Concat (\_ x -> x) maybeSpaceRegex $
-    Concat (\_ x -> x) (strTerminal ':') $
+    Concat (\_ x -> x) (strTerminal ch) $
     Concat (\x _ -> x) (anyOfRegex (map (\ (x,y,z,w) -> (x,(x,y,z,w))) xs)) $
                        spaceRegex
 
