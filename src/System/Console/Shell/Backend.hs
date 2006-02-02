@@ -52,7 +52,7 @@ data ShellBackend bst
          -- ^ Retrive a single character from the user without waiting for carriage return.
 
      , getInput                       :: bst -> String -> IO (Maybe String)
-         -- ^ Retrive a line of input from the user.
+         -- ^ Print the prompt and retrive a line of input from the user.
 
      , addHistory                     :: bst -> String -> IO ()
          -- ^ Add a string to the history list.

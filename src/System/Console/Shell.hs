@@ -224,7 +224,7 @@ data ShellDescription st
    , beforePrompt       :: OutputCommand
                         -> st 
                         -> IO ()                    -- ^ an IO action to run before each prompt is printed
-   , prompt             :: String                   -- ^ The prompt to print
+   , prompt             :: st -> IO String          -- ^ a command to generate the prompt to print
    , exceptionHandler   :: OutputCommand
                         -> Ex.Exception 
                         -> st 
@@ -249,7 +249,7 @@ initialShellDescription =
        , evaluateFunc       = \_ _ st -> return (st,Nothing)
        , wordBreakChars     = wbc
        , beforePrompt       = \_ _ -> return ()
-       , prompt             = "> "
+       , prompt             = \_ -> return "> "
        , exceptionHandler   = defaultExceptionHandler
        , defaultCompletions = Just (\_ _ -> return [])
        , historyFile        = Nothing
@@ -469,13 +469,15 @@ shellLoop desc backend iss init = loop init
 
         setWordBreakChars backend bst (wordBreakChars desc)
 
+        pr  <- prompt desc st
+
         inp <- case commandStyle desc of
 
                  SingleCharCommands -> do
-                      c <- getSingleChar backend bst (prompt desc)
+                      c <- getSingleChar backend bst pr
                       return (fmap (:[]) c)
 
-                 _ -> getInput backend bst (prompt desc)
+                 _ -> getInput backend bst pr
 
 
         case inp of
