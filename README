@@ -13,8 +13,8 @@ a full featured 'readline' backend based on the the Haskell readline
 bindings found in the standard libraries.
 
 This library attempts to allow users to write shells at a high level
-and still enjoy the advanced features that may be avaliable from a
-powerful line editiing package like readline.
+and still enjoy the advanced features that may be available from a
+powerful line editing package like readline.
 
 
 == Why do I care?
@@ -25,12 +25,12 @@ feature-full shells so you don't have to.
 
 == How is it licensed?
 
-Shellac is avaliable under a BSD3 license.  See the LICENSE file for
+Shellac is available under a BSD3 license.  See the LICENSE file for
 details.
 
 Be aware, however, that the GNU readline library itself is
 licensed under the GPL.  If you wish to use the readline bindings,
-your project will need to be GPL compatable.
+your project will need to be GPL compatible.
 
 Go here (http://directory.fsf.org/GNU/readline.html) for more information
 about the readline library.
@@ -38,8 +38,8 @@ about the readline library.
 
 == How do I build it?
 
-Shellac uses a Cabal build system.  The follwing commands
-assumen you have a haskell interpreter in your system 
+Shellac uses a Cabal build system.  The following commands
+assume you have a Haskell interpreter in your system 
 path named 'runhaskell'.  All commands are run from
 this directory.
 
@@ -65,7 +65,7 @@ runhaskell Setup.hs haddock
 I had to call it something.  And is starts with 'shell'.
 
 
-== Who is responsable for this mess?
+== Who is responsible for this mess?
 
 You can send bug reports, rants and comments to:
 
