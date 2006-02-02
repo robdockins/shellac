@@ -146,12 +146,12 @@ shellPutErrLn outCmd str = outCmd (ErrorOutput (str++"\n"))
 -- | The type of an evaluation function for a shell.  The function
 --   takes three arguments:
 --
---   1) An output function -- this function writes a string to the 
---      shell "console".  Use this function rather than putStr and friends.
+--   (1) An output function command.  Pass this command into 'shellPutStr' 
+--       and friends rather than using 'putStr'.
 --
---   2) The input string
+--   (2) The input string
 --
---   3) The current shell state
+--   (3) The current shell state
 --
 --   Evaluation functions should return the new shell state and
 --   possibly a shell special action to execute.
@@ -160,7 +160,6 @@ type EvaluationFunction st  = OutputCommand
                            -> String 
                            -> st
                            -> IO (st,Maybe (ShellSpecial st))
-
 
 
 
