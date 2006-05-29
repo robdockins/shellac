@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Prime.Exception
+-- Module      :  System.Console.Shell.Exception
 -- Copyright   :  (c) The University of Glasgow 2001
 --                (c) Brian Hulley 2006
 -- License     :  BSD-style (see the file libraries/base/LICENSE)
