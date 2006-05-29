@@ -64,6 +64,8 @@ module System.Console.Shell (
 -- * Auxiliary Types
 , CommandStyle (..)
 , ShellSpecial (..)
+, OutputCommand
+, CommandResult
 ) where
 
 import System.Console.Shell.Types

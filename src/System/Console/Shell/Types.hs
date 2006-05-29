@@ -52,17 +52,25 @@ data CommandParseResult st
 -- | The type of a command parser.
 type CommandParser st = String -> [CommandParseResult st]
 
+
 -- | The type of a shell command.  The shell description is passed in, and the
 --   tuple consists of
 --     (command name,command parser,command syntax document,help message document)
 type ShellCommand st = ShellDescription st -> (String,CommandParser st,Doc,Doc)
 
 
+-- | The type of results from shell commands.  They are a modified
+--   shell state and possibly a shell \"special\" action to execute.
+type CommandResult st = (st,Maybe (ShellSpecial st))
+
+
+-- | The type of commands which produce output on the shell console.
+type OutputCommand = BackendOutput -> IO ()
 
 
 -- | The type of shell commands.  This monad is a stae monad layerd over @IO@.  It is
 --   also a member of 'MonadException' which allows safe exception handling.
-newtype Sh st a = Sh { unSh :: StateT (CommandResult st) (ReaderT ShellMonadInfo IO) a }
+newtype Sh st a = Sh { unSh :: StateT (CommandResult st) (ReaderT OutputCommand IO) a }
    deriving (Monad, MonadIO, MonadException)
 
 
@@ -113,11 +121,3 @@ data ShellSpecial st
       (Subshell st st')        -- ^ Causes the shell to execute a subshell
 
 
--- | The type of results from shell commands.  They are a modified
---   shell state and possibly a shell \"special\" action to execute.
-type CommandResult st = (st,Maybe (ShellSpecial st))
-
--- | The type of commands which produce output on the shell console.
-type OutputCommand = BackendOutput -> IO ()
-
-type ShellMonadInfo = OutputCommand

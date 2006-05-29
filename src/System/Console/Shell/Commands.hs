@@ -138,19 +138,15 @@ cmd name f helpMsg desc =
 --   monomorphic arguments ('Bool', 'Int', 'Integer', 'Float', 'Double', 'String',
 --   'File', 'Username', and 'Completable') and the head type must be @Sh st ()@
 --
--- @
---   f :: Int -> File -> Sh MyShellState ()
---   g :: Double -> Sh st ()
---   h :: Sh SomeShellState ()
--- @
+-- >  f :: Int -> File -> Sh MyShellState ()
+-- >  g :: Double -> Sh st ()
+-- >  h :: Sh SomeShellState ()
 --
 --   are all legal types, whereas:
---
--- @
---   bad1 :: a -> Sh (MyShellState a) ()
---   bad2 :: [Int] -> Sh MyShellState ()
---   bad3 :: Bool -> MyShellState
--- @
+-- 
+-- >  bad1 :: a -> Sh (MyShellState a) ()
+-- >  bad2 :: [Int] -> Sh MyShellState ()
+-- >  bad3 :: Bool -> MyShellState
 --
 --   are not.
 

@@ -39,7 +39,7 @@ import System.Console.Shell.Backend
 import System.Console.Shell.Types
 
 -- | Execute a shell action
-runSh :: st -> ShellMonadInfo -> Sh st () -> IO (CommandResult st)
+runSh :: st -> OutputCommand -> Sh st () -> IO (CommandResult st)
 runSh st info = (flip runReaderT) info . (flip execStateT) (st,Nothing) . unSh
 
 -- | Output a tagged string to the console
