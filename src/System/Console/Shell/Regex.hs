@@ -4,7 +4,7 @@
  -  
  -}
 
-{- | This module implements a pretty hokey version of regular expressions.
+{-   This module implements a pretty hokey version of regular expressions.
  -   They are used to parse the arguments to shell commands and to give
  -   information about the type of the argument at a position in the
  -   string to allow positional word completion.  The REs are directly
@@ -18,10 +18,14 @@ import Numeric               ( readDec, readFloat, readHex )
 import Control.Monad         ( MonadPlus(..) )
 
 
-{- | The type of regular expressions.  Regular expressions evaluation
-     calculates a result value as well as recognizing strings in a language,
-     so we use a GADT which follows the structure of the evaluation.
+{-  The type of regular expressions.  Regular expressions evaluation
+    calculates a result value as well as recognizing strings in a language,
+    so we use a GADT which follows the structure of the evaluation.
 -}
+
+-- hide GADTs from haddock
+#ifndef __HADDOCK__
+
 data Regex a x where
   Empty     :: Regex a x
   Epsilon   :: x -> Regex a x
@@ -33,7 +37,9 @@ data Regex a x where
   Alt       :: (Either p q -> x)       -> Regex a p -> Regex a q -> Regex a x
   Star      :: ([p] -> x)              -> Regex a p -> Regex a x
 
-{- | Auxiliary type used to help remove unnecessary parenthesis when printing REs -}
+#endif
+
+{-  Auxiliary type used to help remove unnecessary parenthesis when printing REs -}
 data RegexContext
   = TopContext
   | AltContext
@@ -41,9 +47,9 @@ data RegexContext
   | StarContext
  deriving Eq
 
-{- | Print a string representation of a regular expression.
-     Really only useful for debugging becuase there is no
-     inverse (parser).
+{-  Print a string representation of a regular expression.
+    Really only useful for debugging becuase there is no
+    inverse (parser).
 -}
 showRegex :: RegexContext -> Regex a x -> String
 showRegex cxt (Label l _)      = l
@@ -65,22 +71,22 @@ instance Show (Regex a x) where
   show = showRegex TopContext
 
 
-{- | Returns true if the regular expressions matches the 
-     input list -}
+{- Returns true if the regular expressions matches the 
+   input list -}
 matchesRegex :: Regex a x -> [a] -> Bool
 matchesRegex re ts = not (null (matchRegex re ts))
 
-{- | Generates a list of all calculated values from 
-     matches on the RE.  Returns the empty list if
-     there are no matches 
+{- Generates a list of all calculated values from 
+   matches on the RE.  Returns the empty list if
+   there are no matches 
 -}
 matchRegex :: Regex a x -> [a] -> [x]
 matchRegex re ts = [ x | (x,[]) <- runRegex re ts ]
 
-{- | Generates a list corresponding to all
-     partial matches of the regular expression.
-     The first component is the calculated value and
-     the second component is the remaining unmatched input
+{- Generates a list corresponding to all
+   partial matches of the regular expression.
+   The first component is the calculated value and
+   the second component is the remaining unmatched input
 -}
 runRegex :: Regex a x -> [a] -> [(x,[a])]
 

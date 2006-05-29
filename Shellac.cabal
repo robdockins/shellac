@@ -1,5 +1,5 @@
 Name:           Shellac
-Version:        0.2
+Version:        0.3
 License:        BSD3
 License-File:   LICENSE
 Author:         Robert Dockins
@@ -17,12 +17,18 @@ Extensions:
    MultiParamTypeClasses
    FunctionalDependencies
    ExistentialQuantification                      
+   CPP
 -- GADT
 -- STM
 Exposed-modules:
    System.Console.Shell
    System.Console.Shell.Backend
    System.Console.Shell.Backend.Basic
+   System.Console.Shell.Exception
+   System.Console.Shell.ShellMonad
 Other-modules:
    System.Console.Shell.Regex
    System.Console.Shell.PPrint
+   System.Console.Shell.Types
+   System.Console.Shell.RunShell
+   System.Console.Shell.Commands

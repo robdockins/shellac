@@ -1,8 +1,6 @@
 -----------------------------------------------------------
 -- Daan Leijen (c) 2000, http://www.cs.uu.nl/~daan
 --
--- $version: $
---
 -- Pretty print module based on Philip Wadlers "prettier printer"
 --      "A prettier printer"
 --      Draft paper, April 1997, revised March 1998. 
