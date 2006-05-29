@@ -4,15 +4,31 @@
  -
  -}
 
+
+-- | This module implements a monad for use in shell commands and in
+--   evaluation functions.  It is a state moand layered over @IO@.
+--   @liftIO@ may be used to execute arbitrary I\/O actions.  However,
+--   the @shellPut@* commands are the preferred way to output text.
+--
+--   Exception handling may be done with the methods from
+--   "System.Console.Shell.Exception".
+
 module System.Console.Shell.ShellMonad (
-, Sh
+-- * The Shell monad
+  Sh
 , runSh
+
+-- * Output functions
 , shellPut
 , shellPutStr, shellPutStrLn
 , shellPutInfo, shellPutInfoLn
 , shellPutErr, shellPutErrLn
+
+-- * Shell state accessors
 , getShellSt, putShellSt
 , modifyShellSt
+
+-- * Special actions
 , shellSpecial
 ) where
 
@@ -22,10 +38,11 @@ import Control.Monad.State
 import System.Console.Shell.Backend
 import System.Console.Shell.Types
 
+-- | Execute a shell action
 runSh :: st -> ShellMonadInfo -> Sh st () -> IO (CommandResult st)
 runSh st info = (flip runReaderT) info . (flip execStateT) (st,Nothing) . unSh
 
--- | Prints a regular output string
+-- | Output a tagged string to the console
 shellPut :: BackendOutput -> Sh st ()
 shellPut out = Sh (lift ask >>= \f -> liftIO (f out))
 

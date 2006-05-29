@@ -58,6 +58,10 @@ type CommandParser st = String -> [CommandParseResult st]
 type ShellCommand st = ShellDescription st -> (String,CommandParser st,Doc,Doc)
 
 
+
+
+-- | The type of shell commands.  This monad is a stae monad layerd over @IO@.  It is
+--   also a member of 'MonadException' which allows safe exception handling.
 newtype Sh st a = Sh { unSh :: StateT (CommandResult st) (ReaderT ShellMonadInfo IO) a }
    deriving (Monad, MonadIO, MonadException)
 
