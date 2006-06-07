@@ -14,7 +14,6 @@ import Control.Concurrent          ( ThreadId, threadDelay, killThread, forkIO )
 import Control.Concurrent.STM      ( atomically, retry )
 import Control.Concurrent.STM.TVar ( newTVar, readTVar, writeTVar, TVar )
 import System.Directory            ( doesFileExist )
-import System.Posix.Signals        ( Handler (..), installHandler, keyboardSignal )
 import qualified Control.Exception as Ex
 
 import System.Console.Shell.Backend
@@ -23,6 +22,7 @@ import System.Console.Shell.Types
 import System.Console.Shell.Commands
 import System.Console.Shell.PPrint
 import System.Console.Shell.Regex (runRegex)
+import System.Console.Shell.ConsoleHandler
 
 -------------------------------------------------------------------
 -- A record to hold some of the internal muckety-muck needed
@@ -34,14 +34,14 @@ data InternalShellState st bst
      { evalTVar         :: TVar (Maybe (st,Maybe (ShellSpecial st)))
      , evalThreadTVar   :: TVar (Maybe ThreadId)
      , evalCancelTVar   :: TVar Bool
-     , cancelHandler    :: Handler
+     , cancelHandler    :: IO ()
      , backendState     :: bst
      }
 
 
 -------------------------------------------------------------------
--- Main entry point for the shell.  Sets up the crap needed to
--- run shell commands and evaluation in a separate thread and 
+-- Main entry point for the shell.  Sets up all the internal state
+-- needed to run shell commands and evaluation in a separate thread and 
 -- initializes the backend.
 
 
@@ -70,7 +70,7 @@ runShell desc backend init = Ex.bracket setupShell exitShell (\iss -> shellLoop 
                    { evalTVar       = evalVar
                    , evalThreadTVar = thVar
                    , evalCancelTVar = cancelVar
-                   , cancelHandler  = Catch (handleINT evalVar cancelVar thVar)
+                   , cancelHandler  = handleINT evalVar cancelVar thVar
                    , backendState = bst
                    }
 
@@ -293,21 +293,16 @@ shellLoop desc backend iss init = loop init
      let eVar = evalTVar iss
          cVar = evalCancelTVar iss
          tVar = evalThreadTVar iss
-         h = cancelHandler iss
-         e = evaluateFunc desc
      in do atomically (writeTVar cVar False >> writeTVar eVar Nothing >> writeTVar tVar Nothing)
-           tid <- forkIO (runThread e inp iss st)
+           tid <- forkIO (runThread (evaluateFunc desc) inp iss st)
 	   atomically (writeTVar tVar (Just tid))
-           result <- Ex.bracket
-              (installHandler keyboardSignal h Nothing)
-              (\oldh -> installHandler keyboardSignal oldh Nothing)
-              (\_ -> atomically (do
-                  canceled <- readTVar cVar
-                  if canceled then return Nothing else do
-                    result <- readTVar eVar
-                    case result of
-                       Nothing -> retry
-                       Just r  -> return (Just r)))
+           result <- withControlCHandler (cancelHandler iss) $ atomically (do
+                       canceled <- readTVar cVar
+                       if canceled then return Nothing else do
+                         result <- readTVar eVar
+                         case result of
+                            Nothing -> retry
+                            Just r  -> return (Just r))
 
            case result of
              Nothing              -> onCancel backend bst >> loop st
