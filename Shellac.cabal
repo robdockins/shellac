@@ -32,3 +32,4 @@ Other-modules:
    System.Console.Shell.Types
    System.Console.Shell.RunShell
    System.Console.Shell.Commands
+   System.Console.Shell.ConsoleHandler
