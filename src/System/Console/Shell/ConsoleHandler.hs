@@ -21,17 +21,17 @@ import qualified GHC.ConsoleHandler as CH
 
 
 handleCtrlC :: IO () -> CH.Handler
-handleCtrlC m = CH.Catch $ \ev ->
+handleCtrlC hdl = CH.Catch $ \ev ->
    case ev of
-     CH.ControlC -> m
-      _          -> return ()
+     CH.ControlC -> hdl
+     _           -> return ()
 
 
 withControlCHandler :: IO () -> IO a -> IO a
 withControlCHandler hdl m =
   Ex.bracket
       (CH.installHandler (handleCtrlC hdl))
-      (\oldh -> CH.installlHandler oldh)
+      (\oldh -> CH.installHandler oldh)
       (\_ -> m)
 
 
