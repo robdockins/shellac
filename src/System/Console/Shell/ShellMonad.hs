@@ -87,3 +87,8 @@ modifyShellSt f = getShellSt >>= putShellSt . f
 --   a bit of state that is overwritten on each call.
 shellSpecial :: ShellSpecial st -> Sh st ()
 shellSpecial spec = Sh (get >>= \ (st,_) -> put (st,Just spec))
+
+
+instance MonadState st (Sh st) where
+  get = getShellSt
+  put = putShellSt
