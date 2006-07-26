@@ -44,7 +44,7 @@
  ----------------------------------------------------------------------------
  -}
 
-module History 
+module System.Console.Shell.History 
   ( History      -- abstract
   , HistoryEntry
       ( AtTop    -- HistoryEntry a
