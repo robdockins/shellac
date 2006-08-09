@@ -135,7 +135,7 @@ cmd name f helpMsg desc =
 -- | This class is used in the 'cmd' function to automaticly generate
 --   the command parsers and command syntax strings for user defined
 --   commands.  The type of \'f\' is restricted to have a restricted set of
---   monomorphic arguments ('Bool', 'Int', 'Integer', 'Float', 'Double', 'String',
+--   monomorphic arguments ('Int', 'Integer', 'Float', 'Double', 'String',
 --   'File', 'Username', and 'Completable') and the head type must be @Sh st ()@
 --
 -- >  f :: Int -> File -> Sh MyShellState ()
