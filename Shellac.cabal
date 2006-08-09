@@ -1,12 +1,12 @@
 Name:           Shellac
-Version:        0.4
+Version:        0.5
 License:        BSD3
 License-File:   LICENSE
 Author:         Robert Dockins
 Synopsis:       Framework for creating shell envinronments
 Category:       Console
 Stability:      Alpha
-Hs-Source-Dir:
+Hs-Source-Dirs:
    src
 Build-Depends:
    base >= 1.0,
