@@ -35,6 +35,7 @@ data InternalShellState st bst
      , evalThreadTVar   :: TVar (Maybe ThreadId)
      , evalCancelTVar   :: TVar Bool
      , cancelHandler    :: IO ()
+     , continuedInput   :: TVar (Maybe String)
      , backendState     :: bst
      }
 
@@ -60,7 +61,9 @@ runShell desc backend init = Ex.bracket setupShell exitShell (\iss -> shellLoop 
             evalVar   <- atomically (newTVar Nothing)
             thVar     <- atomically (newTVar Nothing)
             cancelVar <- atomically (newTVar False)
+            ci        <- atomically (newTVar Nothing)
             bst       <- initBackend backend
+
 
             when (historyEnabled desc) (do
    	       setMaxHistoryEntries backend bst (maxHistoryEntries desc)
@@ -71,7 +74,8 @@ runShell desc backend init = Ex.bracket setupShell exitShell (\iss -> shellLoop 
                    , evalThreadTVar = thVar
                    , evalCancelTVar = cancelVar
                    , cancelHandler  = handleINT evalVar cancelVar thVar
-                   , backendState = bst
+                   , backendState   = bst
+                   , continuedInput = ci
                    }
 
         exitShell iss = do
@@ -205,8 +209,8 @@ shellLoop desc backend iss init = loop init
 
    loop :: st -> IO st
 
-   loop st =
-     do flushOutput backend bst
+   loop st = do
+        flushOutput backend bst
         runSh st (outputString backend bst) (beforePrompt desc)
         setAttemptedCompletionFunction backend bst
 	      (completionFunction desc backend bst st)
@@ -217,20 +221,39 @@ shellLoop desc backend iss init = loop init
 
         setWordBreakChars backend bst (wordBreakChars desc)
 
-        pr  <- prompt desc st
+        ci  <- atomically (do
+                  x <- readTVar (continuedInput iss)
+                  writeTVar (continuedInput iss) Nothing
+                  return x)
 
-        inp <- case commandStyle desc of
+        pr  <- getPrompt (isJust ci) st
 
-                 SingleCharCommands -> do
-                      c <- getSingleChar backend bst pr
-                      return (fmap (:[]) c)
-
-                 _ -> getInput backend bst pr
-
+        inp <- doGetInput ci pr
 
         case inp of
            Nothing   -> return st
-           Just inp' -> handleInput inp' st
+           Just inp' -> if not (isJust ci)
+                           then handleInput   inp' st
+                           else evaluateInput inp' st
+
+
+   doGetInput :: Maybe String -> String -> IO (Maybe String)
+   doGetInput ci pr =
+       case commandStyle desc of
+            SingleCharCommands -> do
+                 c <- getSingleChar backend bst pr
+                 return (fmap (:[]) c)
+
+            _ -> do
+                 str <- getInput backend bst pr
+                 return (fmap (\x -> maybe x (++ '\n':x) ci) str)
+
+
+   getPrompt :: Bool -> st -> IO String
+   getPrompt False st = prompt desc st
+   getPrompt True  st = case secondaryPrompt desc of
+                          Nothing -> prompt desc st
+                          Just f  -> f st
 
 
    handleInput :: String -> st -> IO st
@@ -263,6 +286,7 @@ shellLoop desc backend iss init = loop init
    handleSpecial st ShellNothing            = loop st
    handleSpecial st (ShellHelp Nothing)     = (outputString backend bst) (InfoOutput $ showShellHelp desc)   >> loop st
    handleSpecial st (ShellHelp (Just cmd))  = (outputString backend bst) (InfoOutput $ showCmdHelp desc cmd) >> loop st
+   handleSpecial st (ShellContinueLine str) = atomically (writeTVar (continuedInput iss) (Just str)) >> loop st
    handleSpecial st (ExecSubshell subshell) = runSubshell desc subshell backend bst st >>= loop
 
    handleExceptions :: ShellDescription st 

@@ -85,6 +85,7 @@ initialShellDescription =
        , wordBreakChars     = wbc
        , beforePrompt       = return ()
        , prompt             = \_ -> return "> "
+       , secondaryPrompt    = Nothing
        , exceptionHandler   = defaultExceptionHandler
        , defaultCompletions = Just (\_ _ -> return [])
        , historyFile        = Nothing

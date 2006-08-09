@@ -85,8 +85,11 @@ data ShellDescription st
    , commandStyle       :: CommandStyle             -- ^ The style of shell commands
    , evaluateFunc       :: String -> Sh st ()       -- ^ The evaluation function for this shell
    , wordBreakChars     :: [Char]                   -- ^ The characters upon which the backend will break words
-   , beforePrompt       :: Sh st ()                 -- ^ a shell action to run before each prompt is printed
-   , prompt             :: st -> IO String          -- ^ a command to generate the prompt to print
+   , beforePrompt       :: Sh st ()                 -- ^ A shell action to run before each prompt is printed
+   , prompt             :: st -> IO String          -- ^ A command to generate the prompt to print
+   , secondaryPrompt    :: Maybe (st -> IO String)  -- ^ A command to generate the secondary prompt.  The secondary
+                                                    --   prompt is used for multi-line input.  If not set, the
+                                                    --   regular prompt is used instead.
    , exceptionHandler   :: Ex.Exception ->
                            Sh st ()                 -- ^ A function called when an exception occurs
    , defaultCompletions :: Maybe (st -> String 
@@ -117,6 +120,8 @@ data ShellSpecial st
                                --   If a command name is specified, only information about
                                --   that command will be displayed
   | ShellNothing               -- ^ Instructs the shell to do nothing; redisplay the prompt and continue
+  | ShellContinueLine String   -- ^ Ask the shell to continue accepting input on another line, which should
+                               --   be appended to the given string
   | forall st'. ExecSubshell
       (Subshell st st')        -- ^ Causes the shell to execute a subshell
 
