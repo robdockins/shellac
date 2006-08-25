@@ -8,7 +8,7 @@
  -   They are used to parse the arguments to shell commands and to give
  -   information about the type of the argument at a position in the
  -   string to allow positional word completion.  The REs are directly
- -   intertreted in the list monad, so effeciency isn't so great, but
+ -   interpreted in the list monad, so effeciency isn't so great, but
  -   for most shell command lines that won't matter too much.
  -}
 
@@ -19,25 +19,21 @@ import Control.Monad         ( MonadPlus(..) )
 
 
 {-  The type of regular expressions.  Regular expressions evaluation
-    calculates a result value as well as recognizing strings in a language,
-    so we use a GADT which follows the structure of the evaluation.
+    calculates a result value as well as recognizing strings in a language.
+    The Regex data type was originally coded as a GADT.  However, only exestentials
+    are required, so it is reformulated here using existential quantification.
 -}
 
--- hide GADTs from haddock
-#ifndef __HADDOCK__
+data Regex a x
+  = Empty
+  | Epsilon x
+  | Label String (Regex a x)
+  | Terminal (a -> Bool) (a -> x) String
+  | External ([a] -> [(x,[a])]) String
+  | forall p q. Concat (p -> q -> x)     (Regex a p) (Regex a q)
+  | forall p q. Alt    (Either p q -> x) (Regex a p) (Regex a q)
+  | forall p  . Star   ([p] -> x)        (Regex a p)
 
-data Regex a x where
-  Empty     :: Regex a x
-  Epsilon   :: x -> Regex a x
-  Label     :: String -> Regex a x -> Regex a x
-  Terminal  :: (a -> Bool) -> (a -> x) -> String -> Regex a x
-  External  :: ([a] -> [(x,[a])]) -> String -> Regex a x
-
-  Concat    :: (p -> q -> x)           -> Regex a p -> Regex a q -> Regex a x
-  Alt       :: (Either p q -> x)       -> Regex a p -> Regex a q -> Regex a x
-  Star      :: ([p] -> x)              -> Regex a p -> Regex a x
-
-#endif
 
 {-  Auxiliary type used to help remove unnecessary parenthesis when printing REs -}
 data RegexContext

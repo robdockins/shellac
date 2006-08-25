@@ -16,9 +16,8 @@ Build-Depends:
 Extensions:
    MultiParamTypeClasses
    FunctionalDependencies
-   ExistentialQuantification                      
+   ExistentialQuantification
    CPP
--- GADT
 -- STM
 Exposed-modules:
    System.Console.Shell
