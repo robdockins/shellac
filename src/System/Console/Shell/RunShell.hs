@@ -11,8 +11,7 @@ import Data.IORef                  ( IORef, newIORef, readIORef, writeIORef )
 import Control.Monad               ( when, MonadPlus(..) )
 import Control.Monad.Error         ()
 import Control.Concurrent          ( ThreadId, threadDelay, killThread, forkIO )
-import Control.Concurrent.STM      ( atomically, retry )
-import Control.Concurrent.STM.TVar ( newTVar, readTVar, writeTVar, TVar )
+import Control.Concurrent.MVar     ( MVar, newEmptyMVar, tryTakeMVar, tryPutMVar, withMVar, takeMVar, putMVar )
 import System.Directory            ( doesFileExist )
 import qualified Control.Exception as Ex
 
@@ -35,7 +34,6 @@ data InternalShellState st bst
      , evalThreadTVar   :: TVar (Maybe ThreadId)
      , evalCancelTVar   :: TVar Bool
      , cancelHandler    :: IO ()
-     , continuedInput   :: TVar (Maybe String)
      , backendState     :: bst
      }
 
@@ -61,7 +59,6 @@ runShell desc backend init = Ex.bracket setupShell exitShell (\iss -> shellLoop 
             evalVar   <- atomically (newTVar Nothing)
             thVar     <- atomically (newTVar Nothing)
             cancelVar <- atomically (newTVar False)
-            ci        <- atomically (newTVar Nothing)
             bst       <- initBackend backend
 
 
@@ -70,10 +67,9 @@ runShell desc backend init = Ex.bracket setupShell exitShell (\iss -> shellLoop 
                loadHistory desc backend bst)
 
             return InternalShellState
-                   { evalTVar       = evalVar
-                   , evalThreadTVar = thVar
-                   , evalCancelTVar = cancelVar
-                   , cancelHandler  = handleINT evalVar cancelVar thVar
+                   { evalVar        = evVar
+                   , evalThreadVar  = thVar
+                   , cancelHandler  = handleINT evVar thVar
                    , backendState   = bst
                    , continuedInput = ci
                    }
@@ -84,22 +80,9 @@ runShell desc backend init = Ex.bracket setupShell exitShell (\iss -> shellLoop 
 	       clearHistoryState backend (backendState iss))
 	    flushOutput backend (backendState iss)
 
-        handleINT evalVar cancelVar thVar = do
-            maybeTid <- atomically (do
- 	    	         result <- readTVar evalVar
-	                 if isJust result
-                            then return Nothing
-                            else do writeTVar cancelVar True
-                                    writeTVar evalVar Nothing
-                                    tid <- readTVar thVar
-	                            case tid of
-                                       Nothing  -> retry
-                                       Just tid -> return (Just tid))
-
-
-            case maybeTid of
-               Nothing  -> return ()
-               Just tid -> killThread tid
+        handleINT evVar thVar = do
+            x <- tryPutMVar evVar Nothing
+            when x (withMVar thVar killThread)
 
 
 -------------------------------------------------------------------------
@@ -304,30 +287,21 @@ shellLoop desc backend iss init = loop init
 
    runThread eval inp iss st = do
       val <- handleExceptions desc (\x -> runSh x (outputString backend bst) (eval inp)) st
-      atomically (do
-         cancled <- readTVar (evalCancelTVar iss)
-	 if cancled then return () else do
-           writeTVar (evalTVar iss) (Just val))
+      tryPutMVar (evalVar iss) (Just val)
+      return ()
 
    evaluateInput :: String
                  -> st
                  -> IO st
 
    evaluateInput inp st =
-     let eVar = evalTVar iss
-         cVar = evalCancelTVar iss
-         tVar = evalThreadTVar iss
-     in do atomically (writeTVar cVar False >> writeTVar eVar Nothing >> writeTVar tVar Nothing)
+     let eVar = evalVar iss
+         tVar = evalThreadVar iss
+     in do tryTakeMVar eVar
+           tryTakeMVar tVar
            tid <- forkIO (runThread (evaluateFunc desc) inp iss st)
-	   atomically (writeTVar tVar (Just tid))
-           result <- withControlCHandler (cancelHandler iss) $ atomically (do
-                       canceled <- readTVar cVar
-                       if canceled then return Nothing else do
-                         result <- readTVar eVar
-                         case result of
-                            Nothing -> retry
-                            Just r  -> return (Just r))
-
+           putMVar tVar tid
+           result <- withControlCHandler (cancelHandler iss) (takeMVar eVar)
            case result of
              Nothing              -> onCancel backend bst >> loop st
              Just (st',Just spec) -> handleSpecial st' spec
