@@ -30,11 +30,11 @@ import System.Console.Shell.ConsoleHandler
 
 data InternalShellState st bst
    = InternalShellState
-     { evalTVar         :: TVar (Maybe (st,Maybe (ShellSpecial st)))
-     , evalThreadTVar   :: TVar (Maybe ThreadId)
-     , evalCancelTVar   :: TVar Bool
-     , cancelHandler    :: IO ()
-     , backendState     :: bst
+     { evalVar         :: MVar (Maybe (st,Maybe (ShellSpecial st)))
+     , evalThreadVar   :: MVar ThreadId
+     , cancelHandler   :: IO ()
+     , backendState    :: bst
+     , continuedInput  :: MVar String
      }
 
 
@@ -56,9 +56,9 @@ runShell :: ShellDescription st
 runShell desc backend init = Ex.bracket setupShell exitShell (\iss -> shellLoop desc backend iss init)
 
   where setupShell = do
-            evalVar   <- atomically (newTVar Nothing)
-            thVar     <- atomically (newTVar Nothing)
-            cancelVar <- atomically (newTVar False)
+            evVar     <- newEmptyMVar
+            thVar     <- newEmptyMVar
+            ci        <- newEmptyMVar
             bst       <- initBackend backend
 
 
@@ -204,10 +204,7 @@ shellLoop desc backend iss init = loop init
 
         setWordBreakChars backend bst (wordBreakChars desc)
 
-        ci  <- atomically (do
-                  x <- readTVar (continuedInput iss)
-                  writeTVar (continuedInput iss) Nothing
-                  return x)
+        ci <- tryTakeMVar (continuedInput iss)
 
         pr  <- getPrompt (isJust ci) st
 
@@ -269,7 +266,7 @@ shellLoop desc backend iss init = loop init
    handleSpecial st ShellNothing            = loop st
    handleSpecial st (ShellHelp Nothing)     = (outputString backend bst) (InfoOutput $ showShellHelp desc)   >> loop st
    handleSpecial st (ShellHelp (Just cmd))  = (outputString backend bst) (InfoOutput $ showCmdHelp desc cmd) >> loop st
-   handleSpecial st (ShellContinueLine str) = atomically (writeTVar (continuedInput iss) (Just str)) >> loop st
+   handleSpecial st (ShellContinueLine str) = putMVar (continuedInput iss) str >> loop st
    handleSpecial st (ExecSubshell subshell) = runSubshell desc subshell backend bst st >>= loop
 
    handleExceptions :: ShellDescription st 
