@@ -21,7 +21,6 @@ Exposed-modules:
    System.Console.Shell
    System.Console.Shell.Backend
    System.Console.Shell.Backend.Basic
-   System.Console.Shell.Exception
    System.Console.Shell.ShellMonad
    System.Console.Shell.History
 Other-modules:

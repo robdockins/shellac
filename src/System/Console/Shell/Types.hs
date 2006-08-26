@@ -7,7 +7,6 @@ import Control.Monad.State
 
 import System.Console.Shell.PPrint
 import System.Console.Shell.Backend
-import System.Console.Shell.Exception
 
 
 -- | Datatype describing the style of shell commands.  This
@@ -71,8 +70,7 @@ type OutputCommand = BackendOutput -> IO ()
 -- | The type of shell commands.  This monad is a stae monad layerd over @IO@.  It is
 --   also a member of 'MonadException' which allows safe exception handling.
 newtype Sh st a = Sh { unSh :: StateT (CommandResult st) (ReaderT OutputCommand IO) a }
-   deriving (Monad, MonadIO, MonadException)
-
+   deriving (Monad, MonadIO)
 
 ------------------------------------------------------------------------
 -- The shell description and utility functions
