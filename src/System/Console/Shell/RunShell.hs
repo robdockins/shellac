@@ -179,21 +179,20 @@ saveHistory desc backend bst =
 -- to get the input string, and then handle the input.
 
 
-shellLoop :: forall st bst
-           . ShellDescription st
+shellLoop :: ShellDescription st
           -> ShellBackend bst
           -> InternalShellState st bst
           -> st
           -> IO st
 
-shellLoop desc backend iss init = loop init
+shellLoop desc backend iss = loop
  where
    bst = backendState iss
 
    loop :: st -> IO st
 
-   loop st = do
-        flushOutput backend bst
+   loop st =
+     do flushOutput backend bst
         runSh st (outputString backend bst) (beforePrompt desc)
         setAttemptedCompletionFunction backend bst
 	      (completionFunction desc backend bst st)
@@ -236,7 +235,6 @@ shellLoop desc backend iss init = loop init
                           Just f  -> f st
 
 
-   handleInput :: String -> st -> IO st
    handleInput inp st = do
      when (historyEnabled desc && (isJust (find (not . isSpace) inp)))
           (addHistory backend bst inp)
@@ -248,7 +246,6 @@ shellLoop desc backend iss init = loop init
        []          -> evaluateInput inp st
 
 
-   executeCommand :: (String,CommandParser st,Doc,Doc) -> String -> st -> IO st
    executeCommand (cmdName,cmdParser,_,_) inp st =
       let parses  = cmdParser inp
           parses' = concatMap (\x -> case x of CompleteParse z -> [z]; _ -> []) parses
@@ -261,7 +258,7 @@ shellLoop desc backend iss init = loop init
 
           _   -> (outputString backend bst) (InfoOutput $ showCmdHelp desc cmdName) >> loop st
 
-   handleSpecial :: st -> ShellSpecial st -> IO st
+
    handleSpecial st ShellExit               = return st
    handleSpecial st ShellNothing            = loop st
    handleSpecial st (ShellHelp Nothing)     = (outputString backend bst) (InfoOutput $ showShellHelp desc)   >> loop st
@@ -269,27 +266,15 @@ shellLoop desc backend iss init = loop init
    handleSpecial st (ShellContinueLine str) = putMVar (continuedInput iss) str >> loop st
    handleSpecial st (ExecSubshell subshell) = runSubshell desc subshell backend bst st >>= loop
 
-   handleExceptions :: ShellDescription st 
-                    -> (st -> IO (st,Maybe (ShellSpecial st))) 
-                    -> st 
-                    -> IO (st,Maybe (ShellSpecial st))
+
    handleExceptions desc f st = Ex.catch (f st) $ \ex ->
       runSh st (outputString backend bst) (exceptionHandler desc ex)
 
-   runThread :: (String -> Sh st ())
-             -> String
-             -> InternalShellState st bst 
-             -> st 
-             -> IO ()
 
    runThread eval inp iss st = do
       val <- handleExceptions desc (\x -> runSh x (outputString backend bst) (eval inp)) st
       tryPutMVar (evalVar iss) (Just val)
       return ()
-
-   evaluateInput :: String
-                 -> st
-                 -> IO st
 
    evaluateInput inp st =
      let eVar = evalVar iss
@@ -303,6 +288,8 @@ shellLoop desc backend iss init = loop init
              Nothing              -> onCancel backend bst >> loop st
              Just (st',Just spec) -> handleSpecial st' spec
              Just (st',Nothing)   -> loop st'
+
+
 
 -------------------------------------------------------------------------
 -- | The default shell exception handler.  It simply prints the exception
