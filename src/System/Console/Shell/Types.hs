@@ -1,3 +1,9 @@
+{-
+ -
+ -  Copyright 2005-2006, Robert Dockins.
+ -
+ -}
+
 module System.Console.Shell.Types where
 
 import qualified Control.Exception as Ex

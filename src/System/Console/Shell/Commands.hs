@@ -1,3 +1,9 @@
+{-
+ -
+ -  Copyright 2005-2006, Robert Dockins.
+ -
+ -}
+
 module System.Console.Shell.Commands where
 
 import System.Console.Shell.Types
