@@ -6,7 +6,7 @@ Author:         Robert Dockins
 Synopsis:       Framework for creating shell envinronments
 Category:       Console
 Stability:      Alpha
-Hs-Source-Dirs:
+Hs-Source-Dir:
    src
 Build-Depends:
    base >= 1.0,

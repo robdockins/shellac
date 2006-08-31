@@ -62,7 +62,7 @@ runhaskell Setup.hs haddock
 
 == Why 'Shellac'?
 
-I had to call it something.  And is starts with 'shell'.
+I had to call it something.  And it starts with 'shell'.
 
 
 == Who is responsible for this mess?
