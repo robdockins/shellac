@@ -4,14 +4,10 @@
  -
  -}
 
-
 -- | This module implements a monad for use in shell commands and in
 --   evaluation functions.  It is a state moand layered over @IO@.
 --   @liftIO@ may be used to execute arbitrary I\/O actions.  However,
 --   the @shellPut@* commands are the preferred way to output text.
---
---   Exception handling may be done with the methods from
---   "System.Console.Shell.Exception".
 
 module System.Console.Shell.ShellMonad (
 -- * The Shell monad
@@ -87,7 +83,6 @@ modifyShellSt f = getShellSt >>= putShellSt . f
 --   a bit of state that is overwritten on each call.
 shellSpecial :: ShellSpecial st -> Sh st ()
 shellSpecial spec = Sh (get >>= \ (st,_) -> put (st,Just spec))
-
 
 instance MonadState st (Sh st) where
   get = getShellSt
