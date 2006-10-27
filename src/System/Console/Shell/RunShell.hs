@@ -195,10 +195,9 @@ shellLoop desc backend iss = loop
  where
    bst = backendState iss
 
-   loop :: st -> IO st
+   loop st = do
+        flushOutput backend bst
 
-   loop st =
-     do flushOutput backend bst
         runSh st (outputString backend bst) (beforePrompt desc)
         setAttemptedCompletionFunction backend bst
 	      (completionFunction desc backend bst st)
@@ -234,7 +233,6 @@ shellLoop desc backend iss = loop
                  return (fmap (\x -> maybe x (++ '\n':x) ci) str)
 
 
-   getPrompt :: Bool -> st -> IO String
    getPrompt False st = prompt desc st
    getPrompt True  st = case secondaryPrompt desc of
                           Nothing -> prompt desc st
