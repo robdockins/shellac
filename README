@@ -36,6 +36,15 @@ Go here (http://directory.fsf.org/GNU/readline.html) for more information
 about the readline library.
 
 
+== What about portability?
+
+Currently, Shellac is GHC only.  The 0.5 release made significant
+efforts toward portability by eliminating dependencies on the GHC
+specific features GADTs and STM.  However, it still requires
+exestential types, multi-parameter type classes, functional
+dependencies and the FFI.  It is possible that a future release
+may support Hugs as well as GHC.
+
 == How do I build it?
 
 Shellac uses a Cabal build system.  The following commands
