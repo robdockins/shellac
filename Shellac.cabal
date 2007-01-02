@@ -1,5 +1,5 @@
 Name:           Shellac
-Version:        0.5
+Version:        0.6
 License:        BSD3
 License-File:   LICENSE
 Author:         Robert Dockins
@@ -17,6 +17,7 @@ Extensions:
    FunctionalDependencies
    ExistentialQuantification
    CPP
+   UndecidableInstances
 Exposed-modules:
    System.Console.Shell
    System.Console.Shell.Backend
