@@ -82,6 +82,7 @@ initialShellDescription =
        { shellCommands      = []
        , commandStyle       = CharPrefixCommands ':'
        , evaluateFunc       = \_ -> return ()
+       , greetingText       = Nothing
        , wordBreakChars     = wbc
        , beforePrompt       = return ()
        , prompt             = \_ -> return "> "

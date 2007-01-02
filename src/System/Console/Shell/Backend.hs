@@ -46,6 +46,10 @@ data ShellBackend bst
          --   shell instance.  The generated value will be passed back in to each call of the
          --   other methods in this record.
 
+     , shutdownBackend                :: bst -> IO ()
+         -- ^ Called when the shell exits to allow the backend to perform any necessary
+         --   cleanup actions.
+
      , outputString                   :: bst -> BackendOutput -> IO ()
          -- ^ Causes the string to be sent to the underlying console device.
 

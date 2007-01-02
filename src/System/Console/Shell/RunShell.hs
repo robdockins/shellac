@@ -58,38 +58,59 @@ runShell :: ShellDescription st
          -> ShellBackend bst
          -> st
          -> IO st
-
-runShell desc backend init = Ex.bracket setupShell exitShell (\iss -> shellLoop desc backend iss init)
-
-  where setupShell = do
+runShell desc backend init = Ex.bracket setupShell exitShell (\iss -> executeShell desc backend iss init)
+  where
+      setupShell = do
             evVar     <- newEmptyMVar
             thVar     <- newEmptyMVar
             ci        <- newEmptyMVar
             bst       <- initBackend backend
 
-
-            when (historyEnabled desc) (do
-   	       setMaxHistoryEntries backend bst (maxHistoryEntries desc)
-               loadHistory desc backend bst)
-
             return InternalShellState
-                   { evalVar        = evVar
-                   , evalThreadVar  = thVar
-                   , cancelHandler  = handleINT evVar thVar
-                   , backendState   = bst
-                   , continuedInput = ci
-                   }
+                    { evalVar        = evVar
+                    , evalThreadVar  = thVar
+                    , cancelHandler  = handleINT evVar thVar
+                    , backendState   = bst
+                    , continuedInput = ci
+                    }
 
-        exitShell iss = do
+      exitShell iss = do
+            shutdownBackend backend (backendState iss)
+
+
+executeShell
+         :: ShellDescription st
+         -> ShellBackend bst
+         -> InternalShellState st bst
+         -> st
+         -> IO st
+executeShell desc backend iss init = do
+            when (historyEnabled desc) (do
+                    setMaxHistoryEntries backend (backendState iss) (maxHistoryEntries desc)
+                    loadHistory desc backend (backendState iss))
+
+            maybe (return ())
+                  (outputString backend (backendState iss) . InfoOutput)
+                  (greetingText desc)
+
+            final <- shellLoop desc backend iss init
+
             when (historyEnabled desc) (do
                saveHistory desc backend (backendState iss)
-	       clearHistoryState backend (backendState iss))
-	    flushOutput backend (backendState iss)
+               clearHistoryState backend (backendState iss))
 
-        handleINT evVar thVar = do
-            x <- tryPutMVar evVar Nothing
-            when x (withMVar thVar killThread)
+            flushOutput backend (backendState iss)
 
+            return final
+
+
+
+
+-- helper function that triggers when an INT signal is caught
+handleINT ::  MVar (Maybe (st,Maybe (ShellSpecial st))) -> MVar ThreadId -> IO ()
+handleINT evVar thVar = do
+      x <- tryPutMVar evVar Nothing
+      when x (withMVar thVar killThread)
 
 -------------------------------------------------------------------------
 -- This function is installed as the attempted completion function.
@@ -200,7 +221,7 @@ shellLoop desc backend iss = loop
 
         runSh st (outputString backend bst) (beforePrompt desc)
         setAttemptedCompletionFunction backend bst
-	      (completionFunction desc backend bst st)
+              (completionFunction desc backend bst st)
 
         case defaultCompletions desc of
            Nothing -> setDefaultCompletionFunction backend bst $ Nothing
@@ -336,6 +357,19 @@ runSubshell :: ShellDescription desc -- ^ the description of the outer shell
 runSubshell desc (toSubSt, fromSubSt, mkSubDesc) backend bst st = do
   subSt   <- toSubSt st
   subDesc <- mkSubDesc subSt
-  subSt'  <- runShell subDesc backend subSt
+
+  evVar     <- newEmptyMVar
+  thVar     <- newEmptyMVar
+  ci        <- newEmptyMVar
+
+  let iss =  InternalShellState
+                 { evalVar        = evVar
+                 , evalThreadVar  = thVar
+                 , cancelHandler  = handleINT evVar thVar
+                 , backendState   = bst
+                 , continuedInput = ci
+                 }
+
+  subSt'  <- executeShell subDesc backend iss subSt
   st'     <- fromSubSt subSt'
   return st'

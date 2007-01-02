@@ -26,6 +26,7 @@ import System.Console.Shell.Backend
 basicBackend :: ShellBackend ()
 basicBackend = ShBackend
   { initBackend                      = return ()
+  , shutdownBackend                  = \_ -> return ()
   , outputString                     = \_ -> basicOutput 
   , flushOutput                      = \_ -> hFlush stdout
   , getSingleChar                    = \_ -> basicGetSingleChar

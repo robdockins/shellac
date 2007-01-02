@@ -88,6 +88,8 @@ data ShellDescription st
    { shellCommands      :: [ShellCommand st]        -- ^ Commands for this shell
    , commandStyle       :: CommandStyle             -- ^ The style of shell commands
    , evaluateFunc       :: String -> Sh st ()       -- ^ The evaluation function for this shell
+
+   , greetingText       :: Maybe String             -- ^ Text to print when the shell starts
    , wordBreakChars     :: [Char]                   -- ^ The characters upon which the backend will break words
    , beforePrompt       :: Sh st ()                 -- ^ A shell action to run before each prompt is printed
    , prompt             :: st -> IO String          -- ^ A command to generate the prompt to print
