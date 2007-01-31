@@ -38,7 +38,7 @@ module System.Console.Shell (
 , helpCommand
 , toggle
 , cmd
-, CommandFunction (..)
+, CommandFunction
 , File (..)
 , Username (..)
 , Completable (..)
