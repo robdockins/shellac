@@ -4,7 +4,7 @@ License:        BSD3
 License-File:   LICENSE
 Author:         Robert Dockins
 Maintainer:     robdockins AT fastmail DOT fm
-Category:       System
+Category:       Interfaces
 Stability:      Beta
 Synopsis:       Framework for creating shell envinronments
 Description:
