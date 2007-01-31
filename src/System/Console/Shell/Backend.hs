@@ -130,14 +130,13 @@ data ShellBackend bst
 defaultWordBreakChars :: [Char]
 defaultWordBreakChars = " \t\n\r\v`~!@#$%^&*()=[]{};\\\'\",<>"
 
---  | This backend template is useful for defining custom backends.
---    The idea is that you will use 'templateBackend' to generate a
---    bare-bones backend implemenation and only fill in the methods
---    that you wish to define using the record update syntax.
---    The parameter to 'templateBackend'
---    becomes the backend state associated with the backend and is
---    passed into to each of the operation methods.
-
+-- | This backend template is useful for defining custom backends.
+--   The idea is that you will use 'templateBackend' to generate a
+--   bare-bones backend implemenation and only fill in the methods
+--   that you wish to define using the record update syntax.
+--   The parameter to 'templateBackend'
+--   becomes the backend state associated with the backend and is
+--   passed into to each of the operation methods.
 templateBackend :: a -> ShellBackend a
 templateBackend bst = ShBackend
      { initBackend                    = return bst
