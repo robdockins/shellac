@@ -34,7 +34,7 @@ basicBackend = ShBackend
   , addHistory                       = \_ _ -> return ()
   , setWordBreakChars                = \_ _ -> return ()
   , getWordBreakChars                = \_ -> return " \t\n\r\v`~!@#$%^&*()=[]{};\\\'\",<>"
-  , onCancel                         = \_ -> hPutStrLn stdout "cancled...\n"
+  , onCancel                         = \_ -> hPutStrLn stdout "canceled...\n"
   , setAttemptedCompletionFunction   = \_ _ -> return ()
   , setDefaultCompletionFunction     = \_ _ -> return ()
   , completeFilename                 = \_ _ -> return []
