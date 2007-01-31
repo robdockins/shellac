@@ -34,7 +34,6 @@ Exposed-modules:
    System.Console.Shell.Backend
    System.Console.Shell.Backend.Basic
    System.Console.Shell.ShellMonad
-   System.Console.Shell.History
 Other-modules:
    System.Console.Shell.Regex
    System.Console.Shell.PPrint
