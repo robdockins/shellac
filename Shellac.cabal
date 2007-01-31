@@ -1,11 +1,11 @@
 Name:           Shellac
-Version:        0.7
+Version:        0.9
 License:        BSD3
 License-File:   LICENSE
 Author:         Robert Dockins
 Maintainer:     robdockins AT fastmail DOT fm
-Category:       Console
-Stability:      Alpha
+Category:       System
+Stability:      Beta
 Synopsis:       Framework for creating shell envinronments
 Description:
   Shellac is a framework for building read-eval-print style shells.  
