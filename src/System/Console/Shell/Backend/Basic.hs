@@ -33,7 +33,7 @@ basicBackend = ShBackend
   , getInput                         = \_ -> basicGetInput
   , addHistory                       = \_ _ -> return ()
   , setWordBreakChars                = \_ _ -> return ()
-  , getWordBreakChars                = \_ -> return " \t\n\r\v`~!@#$%^&*()=[]{};\\\'\",<>"
+  , getWordBreakChars                = \_ -> return defaultWordBreakChars
   , onCancel                         = \_ -> hPutStrLn stdout "canceled...\n"
   , setAttemptedCompletionFunction   = \_ _ -> return ()
   , setDefaultCompletionFunction     = \_ _ -> return ()

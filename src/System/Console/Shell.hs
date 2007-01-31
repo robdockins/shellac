@@ -72,18 +72,17 @@ import System.Console.Shell.Types
 import System.Console.Shell.ShellMonad
 import System.Console.Shell.Commands
 import System.Console.Shell.RunShell
-
+import System.Console.Shell.Backend
 
 -- | A basic shell description with sane initial values
 initialShellDescription :: ShellDescription st
 initialShellDescription =
-  let wbc = " \t\n\r\v`~!@#$%^&*()=[]{};\\\'\",<>" in
-    ShDesc
+   ShDesc
        { shellCommands      = []
        , commandStyle       = CharPrefixCommands ':'
        , evaluateFunc       = \_ -> return ()
        , greetingText       = Nothing
-       , wordBreakChars     = wbc
+       , wordBreakChars     = defaultWordBreakChars
        , beforePrompt       = return ()
        , prompt             = \_ -> return "> "
        , secondaryPrompt    = Nothing
