@@ -41,14 +41,14 @@ about the readline library.
 Currently, Shellac is GHC only.  The 0.5 release made significant
 efforts toward portability by eliminating dependencies on the GHC
 specific features GADTs and STM.  However, it still requires
-exestential types, multi-parameter type classes, functional
-dependencies and the FFI.  It is possible that a future release
-may support Hugs as well as GHC.
+existential types, multi-parameter type classes, functional
+dependencies, preemptive concurrency support and the FFI.  Currently no
+Haskell implementation other than GHC supports all these features.
 
 == How do I build it?
 
 Shellac uses a Cabal build system.  The following commands
-assume you have a Haskell interpreter in your system 
+assume you have a Haskell interpreter in your system
 path named 'runhaskell'.  All commands are run from
 this directory.
 
