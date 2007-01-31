@@ -4,19 +4,33 @@
  -
  -}
 
-module System.Console.Shell.Commands where
+module System.Console.Shell.Commands
+( File (..)
+, Username (..)
+, Completable (..)
+, Completion (..)
+, showShellHelp
+, showCmdHelp
+, helpCommand
+, exitCommand
+, toggle
+, cmd
+, CommandFunction
+, maybePrefix
+, getShellCommands
+, commandsRegex
+) where
 
 import System.Console.Shell.Types
 import System.Console.Shell.PPrint
 import System.Console.Shell.Regex
 import System.Console.Shell.ShellMonad
 
-
 maybePrefix :: ShellDescription st -> String
 maybePrefix desc = case commandStyle desc of CharPrefixCommands x -> [x]; _ -> ""
 
+getShellCommands :: ShellDescription st -> [(String,CommandParser st,Doc,Doc)]
 getShellCommands desc = map ($ desc) (shellCommands desc)
-
 
 -- | Represents a command argument which is a filename
 newtype File = File String
