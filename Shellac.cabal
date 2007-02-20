@@ -4,9 +4,9 @@ License:        BSD3
 License-File:   LICENSE
 Author:         Robert Dockins
 Maintainer:     robdockins AT fastmail DOT fm
-Category:       Interfaces
+Category:       User Interfaces
 Stability:      Beta
-Synopsis:       Framework for creating shell envinronments
+Synopsis:       A framework for creating shell envinronments
 Description:
   Shellac is a framework for building read-eval-print style shells.  
   Shells are created by declaratively defining a set of shell commands
