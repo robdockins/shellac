@@ -233,13 +233,17 @@ instance CommandFunction r st
 
 instance (CommandFunction r st,Completion compl st)
       => CommandFunction (Completable compl -> r) st where
-  parseCommand wbc = doParseCommand
-                        (Just (OtherCompleter (complete (undefined::compl))))
-                        (wordRegex wbc)
-                        Completable
-                        wbc
-  commandSyntax f = text (completableLabel (undefined::compl)) : commandSyntax (f undefined)
 
+  parseCommand wbc =
+     ( doParseCommand
+          (Just (OtherCompleter (complete (undefined::compl))))
+          (wordRegex wbc)
+          Completable
+          wbc
+     ) :: (Completable compl -> r) -> CommandParser st
+
+  commandSyntax (f:: (Completable compl -> r)) =
+     text (completableLabel (undefined::compl)) : commandSyntax (f undefined)
 
 ----------------------------------------------------------------
 -- Helper functions used in the above instance declarations
