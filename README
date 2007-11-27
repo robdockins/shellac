@@ -12,8 +12,8 @@ including a 'basic' backend which uses only Haskell IO primitives and
 a full featured 'readline' backend based on the the Haskell readline
 bindings found in the standard libraries.
 
-This library attempts to allow users to write shells at a high level
-and still enjoy the advanced features that may be available from a
+This library attempts to allow users to write shells in a declarative
+way and still enjoy the advanced features that may be available from a
 powerful line editing package like readline.
 
 
