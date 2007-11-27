@@ -42,7 +42,7 @@ runSh st info = (flip runReaderT) info . (flip execStateT) (st,Nothing) . unSh
 shellPut :: BackendOutput -> Sh st ()
 shellPut out = Sh (lift ask >>= \f -> liftIO (f out))
 
--- | Prints a regular output string with a line terminator
+-- | Prints a regular output string
 shellPutStr :: String -> Sh st ()
 shellPutStr = shellPut . RegularOutput
 

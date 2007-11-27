@@ -4,11 +4,16 @@
  -  
  -}
 
-{- | This module defines the Shellac interface for shell backends.  A shell backend
-     is required to provide sensible implementations for 'outputString', 'flushOutput',
-     'getSingleChar', 'getInput', and 'getWordBreakChars'.  All other operations may 
-     be noops (however, they must not denote bottom!).  
--}
+-- | This module defines the Shellac interface for shell backends.  A shell backend
+--   is required to provide sensible implementations for 'outputString', 'flushOutput',
+--   'getSingleChar', 'getInput', and 'getWordBreakChars'.  All other operations may 
+--   be noops (however, they must not denote bottom!).
+--
+--   This module is intended for use by backend implementers.  It is not intended to
+--   be used by regular clients of the library.  The Shellac package provides a
+--   basic backend ("System.Console.Shell.Backend.Basic").  More advanced backends
+--   are available in separate packages.
+
 
 module System.Console.Shell.Backend
 ( CompletionFunction
@@ -28,7 +33,7 @@ module System.Console.Shell.Backend
 --   \'Just (newWord,completions)\' if completions can be generated.  \'newWord\'
 --   is a new string to replace \'word\' on the command line and \'completions\'
 --   is a list of all possible completions of \'word\'.  To achieve the standard
---   \"complete-as-far-as-possible\" behavior, \'newWord\' should be the longest possible
+--   \"complete-as-far-as-possible\" behavior, \'newWord\' should be the longest common
 --   prefix of all words in \'completions\'.
 
 type CompletionFunction = (String,String,String) 
@@ -45,7 +50,7 @@ data BackendOutput
 
 
 -- | This record type contains all the functions that Shellac allows the pluggable
---   backend to provide.  Most of these operations are optional andn relate to
+--   backend to provide.  Most of these operations are optional and relate to
 --   advanced features like command completion and history.  However, a shell backend
 --   is required to provide sensible implementations for 'outputString', 'flushOutput',
 --   'getSingleChar', 'getInput', and 'getWordBreakChars'.
@@ -53,7 +58,7 @@ data BackendOutput
 data ShellBackend bst
    = ShBackend
      { initBackend                    :: IO bst
-         -- ^ Provides the backend a way to perform any necessary initilization
+         -- ^ Provides the backend a way to perform any necessary initialization
 	 --   before the shell starts.  This function is called once for each
          --   shell instance.  The generated value will be passed back in to each call of the
          --   other methods in this record.
@@ -70,10 +75,10 @@ data ShellBackend bst
          --   operation, the user should be able to view any output sent to this backend.
 
      , getSingleChar                  :: bst -> String -> IO (Maybe Char)
-         -- ^ Retrive a single character from the user without waiting for carriage return.
+         -- ^ Retrieve a single character from the user without waiting for carriage return.
 
      , getInput                       :: bst -> String -> IO (Maybe String)
-         -- ^ Print the prompt and retrive a line of input from the user.
+         -- ^ Print the prompt and retrieve a line of input from the user.
 
      , addHistory                     :: bst -> String -> IO ()
          -- ^ Add a string to the history list.
@@ -86,7 +91,7 @@ data ShellBackend bst
          -- ^ Get the current set of word break characters.
 
      , onCancel                       :: bst -> IO ()
-         -- ^ A callback to run whenever evaluation or a command is cancled
+         -- ^ A callback to run whenever evaluation or a command is canceled
          --   by the keyboard signal
 
      , setAttemptedCompletionFunction :: bst -> CompletionFunction -> IO ()
@@ -124,8 +129,8 @@ data ShellBackend bst
      }
 
 -- | Provides a sane default set of characters to use when breaking
---   lines into \'words\'.  If a backend does not have configuratble
---   word break characters, the 'getWordBreakCharacters' can just
+--   lines into \'words\'.  If a backend does not have configurable
+--   word break characters, then 'getWordBreakCharacters' can just
 --   return this default set.
 defaultWordBreakChars :: [Char]
 defaultWordBreakChars = " \t\n\r\v`~!@#$%^&*()=[]{};\\\'\",<>"

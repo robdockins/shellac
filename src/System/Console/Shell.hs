@@ -4,23 +4,25 @@
  -
  -}
 
-{- | This module implements a framework for creating read-eval-print style
-     command shells.  Shells are created by declaratively defining evaluation
-     functions and \"shell commands\".  Input is read using a plugable backend.
-     The shell framework handles command history and word completion if the
-     backend supports it.
-
-     The basic idea is for creating a shell is:
-
-      (1) Create a list of shell commands and an evaluation function
-
-      (2) Create a shell description (using 'mkShellDescription')
-
-      (3) Set up the initial shell state
-
-      (4) Run the shell (using 'runShell')
--}
-
+-- | This module implements a framework for creating read-eval-print style
+--   command shells.  Shells are created by declaratively defining evaluation
+--   functions and \"shell commands\".  Input is read using a pluggable backend.
+--   The shell framework handles command history and word completion if the
+--   backend supports it.
+--
+--   The basic idea is for creating a shell is:
+--
+--    (1) Create a list of shell commands and an evaluation function
+--
+--    (2) Create a shell description (using 'mkShellDescription')
+--
+--    (3) Set up the initial shell state
+--
+--    (4) Run the shell (using 'runShell')
+--
+--
+--   Shell commands and the evaluation function are written in a custom
+--   monad.  See "System.Console.Shell.ShellMonad" for details on using this monad.
 
 module System.Console.Shell (
 
@@ -52,14 +54,6 @@ module System.Console.Shell (
 -- * Printing Help Messages
 , showShellHelp
 , showCmdHelp
-
--- * Generating text output
-, shellPutStr
-, shellPutStrLn
-, shellPutInfo
-, shellPutInfoLn
-, shellPutErr
-, shellPutErrLn
 
 -- * Auxiliary Types
 , CommandStyle (..)

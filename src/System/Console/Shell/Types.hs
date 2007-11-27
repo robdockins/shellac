@@ -20,23 +20,10 @@ import System.Console.Shell.Backend
 data CommandStyle
    = OnlyCommands            -- ^ Indicates that all input is to be interpreted as shell commands; no
                              --   input will be passed to the evaluation function.
-   | CharPrefixCommands Char -- ^ Indicates that commands are prefixed with a particular character
-                             --   Colon \':\' is the default charcter (a la GHCi).
-   | SingleCharCommands      -- ^ Commands consisit of a single character
+   | CharPrefixCommands Char -- ^ Indicates that commands are prefixed with a particular character.
+                             --   Colon \':\' is the default character (a la GHCi).
+   | SingleCharCommands      -- ^ Commands consist of a single character.
 
-
--- | The type of an evaluation function for a shell.  The function
---   takes three arguments:
---
---   (1) An output function command.  Pass this command into 'shellPutStr' 
---       and friends rather than using 'putStr'.
---
---   (2) The input string
---
---   (3) The current shell state
---
---   Evaluation functions should return the new shell state and
---   possibly a shell special action to execute.
 
 data CommandCompleter st
   = FilenameCompleter
@@ -73,8 +60,9 @@ type CommandResult st = (st,Maybe (ShellSpecial st))
 type OutputCommand = BackendOutput -> IO ()
 
 
--- | The type of shell commands.  This monad is a stae monad layerd over @IO@.  It is
---   also a member of 'MonadException' which allows safe exception handling.
+-- | The type of shell commands.  This monad is a state monad layered over @IO@.
+--   The type parameter @st@ allows the monad to carry around a package of
+--   user-defined state.
 newtype Sh st a = Sh { unSh :: StateT (CommandResult st) (ReaderT OutputCommand IO) a }
    deriving (Monad, MonadIO)
 
@@ -114,7 +102,7 @@ data ShellDescription st
 --
 --    (2) A function to generate the outer shell state from the final subshell state
 --
---    (3) A function to generate the shell description from the inital subshell state
+--    (3) A function to generate the shell description from the initial subshell state
 
 type Subshell st st' = (st -> IO st', st' -> IO st, st' -> IO (ShellDescription st') )
 
@@ -130,5 +118,3 @@ data ShellSpecial st
                                --   be appended to the given string
   | forall st'. ExecSubshell
       (Subshell st st')        -- ^ Causes the shell to execute a subshell
-
-

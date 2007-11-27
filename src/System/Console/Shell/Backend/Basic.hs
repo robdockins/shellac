@@ -5,11 +5,11 @@
  -}
 
 
-{- | This module implements a simple Shellac backend that uses only
-     the primitaves from "System.IO".  It provides no history or
-     command completion capabilities.  You get whatever line editing
-     capabilities 'hGetLine' has and that's it.
--}
+-- | This module implements a simple Shellac backend that uses only
+--   the primitives from \"System.IO\".  It provides no history or
+--   command completion capabilities.  You get whatever line editing
+--   capabilities 'hGetLine' has and that's it.
+
 
 module System.Console.Shell.Backend.Basic
 ( basicBackend
@@ -27,7 +27,7 @@ basicBackend :: ShellBackend ()
 basicBackend = ShBackend
   { initBackend                      = return ()
   , shutdownBackend                  = \_ -> return ()
-  , outputString                     = \_ -> basicOutput 
+  , outputString                     = \_ -> basicOutput
   , flushOutput                      = \_ -> hFlush stdout
   , getSingleChar                    = \_ -> basicGetSingleChar
   , getInput                         = \_ -> basicGetInput

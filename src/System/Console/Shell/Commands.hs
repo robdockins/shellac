@@ -128,7 +128,7 @@ toggle name helpMsg getter setter desc =
 
   where doToggle = do
           st <- getShellSt
-          if getter st 
+          if getter st
              then shellPutInfoLn (name++" off") >> putShellSt (setter False st)
              else shellPutInfoLn (name++" on")  >> putShellSt (setter True  st)
 
