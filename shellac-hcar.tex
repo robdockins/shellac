@@ -1,0 +1,38 @@
+\documentclass{article}
+
+\usepackage{hcar}
+
+\begin{document}
+
+\begin{hcarentry}{Shellac}
+\report{Rob Dockins}
+\status{beta, maintained}
+\makeheader
+
+Shellac is a framework for building read-eval-print style shells.  
+Shells are created by declaratively defining a set of shell commands
+and an evaluation function.  Shellac supports multiple shell backends,
+including a 'basic' backend which uses only Haskell IO primitives and
+a full featured 'readline' backend based on the the Haskell readline
+bindings found in the standard libraries.
+
+This library attempts to allow users to write shells in a declarative
+way and still enjoy the advanced features that may be available from a
+powerful line editing package like readline. 
+
+Shellac is avaliable from Hackage, as is the related
+Shellac-readline package.
+
+Shellac has been sucessfully used by several independent projects
+and the API is now fairly stable.  I will likely be releasing an
+offically ``stable'' version in the not-too-distant future.
+I anticipate few changes from the current version.
+
+\FurtherReading
+\begin{itemize}
+\item \url{http://hackage.haskell.org/cgi-bin/hackage-scripts/package/Shellac}
+\item \url{http://hackage.haskell.org/cgi-bin/hackage-scripts/package/Shellac-readline}
+\end{itemize}
+\end{hcarentry}
+
+\end{document}
