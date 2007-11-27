@@ -10,21 +10,11 @@ module System.Console.Shell.ConsoleHandler
 
 import qualified Control.Exception as Ex
 
-#ifndef mingw32_HOST_OS
+#ifdef BUILD_WINDOWS
 
-import qualified System.Posix.Signals as PS
-
-withControlCHandler :: IO () -> IO a -> IO a
-withControlCHandler hdl m =
-  Ex.bracket
-      (PS.installHandler PS.keyboardSignal (PS.Catch hdl) Nothing)
-      (\oldh -> PS.installHandler PS.keyboardSignal oldh Nothing)
-      (\_ -> m)
-
-#else
-
+-- Windows build, use the GHC console
+-- handler module
 import qualified GHC.ConsoleHandler as CH
-
 
 handleCtrlC :: IO () -> CH.Handler
 handleCtrlC hdl = CH.Catch $ \ev ->
@@ -40,5 +30,16 @@ withControlCHandler hdl m =
       (\oldh -> CH.installHandler oldh)
       (\_ -> m)
 
+#else
+
+-- not Windows, assume POSIX
+import qualified System.Posix.Signals as PS
+
+withControlCHandler :: IO () -> IO a -> IO a
+withControlCHandler hdl m =
+  Ex.bracket
+      (PS.installHandler PS.keyboardSignal (PS.Catch hdl) Nothing)
+      (\oldh -> PS.installHandler PS.keyboardSignal oldh Nothing)
+      (\_ -> m)
 
 #endif

@@ -1,5 +1,7 @@
 Name:           Shellac
-Version:        0.9
+Cabal-Version:  >= 1.2
+Build-Type:	Simple
+Version:        0.9.1
 License:        BSD3
 License-File:   LICENSE
 Author:         Robert Dockins
@@ -17,27 +19,38 @@ Description:
   This library attempts to allow users to write shells at a high level
   and still enjoy the advanced features that may be available from a
   powerful line editing package like readline.
-Hs-Source-Dirs:
-   src
-Build-Depends:
-   base >= 1.0,
-   haskell98 >= 1.0,
-   mtl >= 1.0
-Extensions:
-   MultiParamTypeClasses
-   FunctionalDependencies
-   ExistentialQuantification
-   CPP
-   UndecidableInstances
-Exposed-modules:
-   System.Console.Shell
-   System.Console.Shell.Backend
-   System.Console.Shell.Backend.Basic
-   System.Console.Shell.ShellMonad
-Other-modules:
-   System.Console.Shell.Regex
-   System.Console.Shell.PPrint
-   System.Console.Shell.Types
-   System.Console.Shell.RunShell
-   System.Console.Shell.Commands
-   System.Console.Shell.ConsoleHandler
+
+Library
+  Hs-Source-Dirs:
+     src
+  Build-Depends:
+     base >= 3.0,
+     haskell98 >= 1.0,
+     mtl >= 1.0,
+     directory >= 1.0
+  Extensions:
+     MultiParamTypeClasses
+     FunctionalDependencies
+     ExistentialQuantification
+     CPP
+     UndecidableInstances
+     GeneralizedNewtypeDeriving
+     FlexibleInstances
+     ScopedTypeVariables
+  GHC-Options: -XPatternSignatures
+  if os(windows)
+     GHC-Options: -DBUILD_WINDOWS
+  else
+     Build-Depends: unix >= 2.2
+  Exposed-modules:
+     System.Console.Shell
+     System.Console.Shell.Backend
+     System.Console.Shell.Backend.Basic
+     System.Console.Shell.ShellMonad
+  Other-modules:
+     System.Console.Shell.Regex
+     System.Console.Shell.PPrint
+     System.Console.Shell.Types
+     System.Console.Shell.RunShell
+     System.Console.Shell.Commands
+     System.Console.Shell.ConsoleHandler
