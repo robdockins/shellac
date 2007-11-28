@@ -9,6 +9,7 @@ Maintainer:     robdockins AT fastmail DOT fm
 Category:       User Interfaces
 Stability:      Beta
 Synopsis:       A framework for creating shell envinronments
+Homepage:       http://www.cs.princeton.edu/~rdockins/shellac/home/
 Description:
   Shellac is a framework for building read-eval-print style shells.  
   Shells are created by declaratively defining a set of shell commands
@@ -24,10 +25,7 @@ Library
   Hs-Source-Dirs:
      src
   Build-Depends:
-     base >= 3.0,
-     haskell98 >= 1.0,
-     mtl >= 1.0,
-     directory >= 1.0
+     base, haskell98, mtl
   Extensions:
      MultiParamTypeClasses
      FunctionalDependencies
@@ -37,11 +35,17 @@ Library
      GeneralizedNewtypeDeriving
      FlexibleInstances
      ScopedTypeVariables
-  GHC-Options: -XPatternSignatures
+
   if os(windows)
      GHC-Options: -DBUILD_WINDOWS
   else
-     Build-Depends: unix >= 2.2
+     if impl( ghc >= 6.8 )
+        Build-Depends: unix
+
+  if impl( ghc >= 6.8 )
+     Build-Depends: directory
+     GHC-Options: -XPatternSignatures
+
   Exposed-modules:
      System.Console.Shell
      System.Console.Shell.Backend
