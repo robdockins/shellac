@@ -1,0 +1,76 @@
+<html>
+<head>
+   <title>Shellac</title>
+</head>
+<body>
+
+<h1>Shellac</h1>
+<h2>A library for creating read-eval-print shells</h2>
+
+<table>
+<tr><td>Maintainer:</td>
+    <td>robdockins AT fastmail DOT fm</td></tr>
+<tr><td>Current Version:</td>
+    <td>0.9.1</td></tr>
+<tr><td>Current Release Date:</td>
+    <td>November 27, 2007</td></tr>
+<tr><td>Homepage:</td>
+    <td><a href="http://www.cs.princeton.edu/~rdockins/shellac/home/">
+      http://www.cs.princeton.edu/~rdockins/shellac/home/</a></td></tr>
+<tr><td>Darcs repo:</td>
+    <td><a href="http://www.cs.princeton.edu/~rdockins/shellac/">
+      http://www.cs.princeton.edu/~rdockins/shellac/</a></td></tr>
+<tr><td>Hackage</td>
+    <td><a href="http://hackage.haskell.org/cgi-bin/hackage-scripts/package/Shellac-0.9.1">Shellac</a></td></tr>
+<tr><td>API Documentation</td>
+    <td><a href="http://hackage.haskell.org/packages/archive/Shellac/0.9.1/doc/html/">Shellac</a></td></tr>
+</table>
+<hr/>
+
+<h3>About Shellac</h3>
+<p>
+Shellac is a framework for building read-eval-print style shells.  
+Shells are created by declaratively defining a set of shell commands
+and an evaluation function.  Shellac supports multiple shell backends,
+including a 'basic' backend which uses only Haskell IO primitives and
+a full featured 'readline' backend based on the the Haskell readline
+bindings found in the standard libraries.
+</p>
+
+<p>
+This library attempts to allow users to write shells in a declarative
+way and still enjoy the advanced features that may be available from a
+powerful line editing package like readline.
+</p>
+
+<h3>License</h3>
+<p>
+Shellac is available under a BSD3 license.  See the
+<a href="../LICENSE">LICENSE</a> file for details.
+</p>
+
+<p>
+Be aware, however, that the GNU readline library itself is
+licensed under the GPL.  If you wish to use the readline bindings,
+your project will need to be GPL compatible.
+</p>
+
+<p>
+Go to the
+<a href="http://cnswww.cns.cwru.edu/php/chet/readline/rltop.html">readline home page</a>
+for more information about the readline library.
+</p>
+
+<h3>About portability</h3>
+<p>
+Currently, Shellac is GHC only.  The 0.5 release made significant
+efforts toward portability by eliminating dependencies on the GHC
+specific features GADTs and STM.  However, it still requires
+existential types, multi-parameter type classes, functional
+dependencies, preemptive concurrency support and the FFI.  Currently no
+Haskell implementation other than GHC supports all these features.
+</p>
+
+
+</body>
+</html>
