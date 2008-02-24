@@ -10,7 +10,7 @@ module System.Console.Shell.RunShell (
 , simpleSubshell
 ) where
 
-import Maybe                       ( isJust )
+import Data.Maybe                       ( isJust )
 import Data.Char                   ( isSpace )
 import Data.List                   ( isPrefixOf, find )
 import Data.IORef                  ( IORef, newIORef, readIORef, writeIORef )
@@ -46,7 +46,7 @@ data InternalShellState st bst
 
 -------------------------------------------------------------------
 -- Main entry point for the shell.  Sets up all the internal state
--- needed to run shell commands and evaluation in a separate thread and 
+-- needed to run shell commands and evaluation in a separate thread and
 -- initializes the backend.
 
 
@@ -195,7 +195,7 @@ saveHistory desc backend bst =
   case historyFile desc of
     Nothing   -> return ()
     Just path ->
-       Ex.handle 
+       Ex.handle
           (\ex -> (outputString backend bst) (ErrorOutput $
                  concat ["could not write history file '",path,"'\n    ",show ex]))
           (writeHistory backend bst path)

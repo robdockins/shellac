@@ -68,7 +68,7 @@ import System.Console.Shell.Commands
 import System.Console.Shell.RunShell
 import System.Console.Shell.Backend
 
--- | A basic shell description with sane initial values
+-- | A basic shell description with sane initial values.
 initialShellDescription :: ShellDescription st
 initialShellDescription =
    ShDesc
@@ -88,8 +88,8 @@ initialShellDescription =
        }
 
 
--- | Creates a simple shell description from a list of shell commmands and
---   an evalation function.
+-- | Creates a simple shell description from a list of shell commands and
+--   an evaluation function.
 mkShellDescription :: [ShellCommand st]
                    -> (String -> Sh st ())
                    -> ShellDescription st

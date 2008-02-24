@@ -1,6 +1,6 @@
 Name:           Shellac
 Cabal-Version:  >= 1.2
-Build-Type:	Simple
+Build-Type:     Simple
 Version:        0.9.1
 License:        BSD3
 License-File:   LICENSE
@@ -11,7 +11,7 @@ Stability:      Beta
 Synopsis:       A framework for creating shell envinronments
 Homepage:       http://www.cs.princeton.edu/~rdockins/shellac/home/
 Description:
-  Shellac is a framework for building read-eval-print style shells.  
+  Shellac is a framework for building read-eval-print style shells.
   Shells are created by declaratively defining a set of shell commands
   and an evaluation function.  Shellac supports multiple shell backends,
   including a 'basic' backend which uses only Haskell IO primitives and
@@ -25,7 +25,7 @@ Library
   Hs-Source-Dirs:
      src
   Build-Depends:
-     base, haskell98, mtl
+     base, mtl
   Extensions:
      MultiParamTypeClasses
      FunctionalDependencies
