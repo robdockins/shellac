@@ -37,7 +37,7 @@ Library
      ScopedTypeVariables
 
   if os(windows)
-     GHC-Options: -DBUILD_WINDOWS
+     CPP-Options: -DBUILD_WINDOWS
   else
      if impl( ghc >= 6.8 )
         Build-Depends: unix
