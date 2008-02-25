@@ -25,16 +25,20 @@
           http://www.cs.princeton.edu/~rdockins/shellac-readline/</a><br/>
         <a href="http://www.cs.princeton.edu/~rdockins/shellac-editline/">
           http://www.cs.princeton.edu/~rdockins/shellac-editline/</a><br/>
+        <a href="http://www.cs.princeton.edu/~rdockins/shellac-compatline/">
+          http://www.cs.princeton.edu/~rdockins/shellac-compatline/</a><br/>
     </td></tr>
 <tr><td>Hackage</td>
     <td><a href="http://hackage.haskell.org/cgi-bin/hackage-scripts/package/Shellac-0.9.1">Shellac</a>
         <a href="http://hackage.haskell.org/cgi-bin/hackage-scripts/package/Shellac-readline-0.9">Shellac-readline</a>
         <a href="http://hackage.haskell.org/cgi-bin/hackage-scripts/package/Shellac-editline-0.9">Shellac-editline</a>
+        <a href="http://hackage.haskell.org/cgi-bin/hackage-scripts/package/Shellac-compatline-0.9">Shellac-compatline</a>
   </td></tr>
 <tr><td>API Documentation</td>
     <td><a href="http://hackage.haskell.org/packages/archive/Shellac/0.9.1/doc/html/">Shellac</a>
         <a href="http://hackage.haskell.org/packages/archive/Shellac-readline/0.9/doc/html/">Shellac-readline</a>
         <a href="http://hackage.haskell.org/packages/archive/Shellac-editline/0.9/doc/html/">Shellac-editline</a>
+        <a href="http://hackage.haskell.org/packages/archive/Shellac-compatline/0.9/doc/html/">Shellac-compatline</a>
     </td></tr>
 </table>
 <hr/>
@@ -64,7 +68,10 @@ Shellac is available under a BSD3 license.  See the
 <p>
 Be aware, however, that the GNU readline library itself is
 licensed under the GPL.  If you wish to use the readline bindings,
-your project will need to be GPL compatible.
+your project will need to be GPL compatible.  Also note that the
+"compatline" backend may be compiled against readline depending
+on the configuration of the target machine.  Your project should be
+GPL compatible if you use the compatline backend!
 </p>
 
 <p>
