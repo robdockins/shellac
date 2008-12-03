@@ -1,6 +1,6 @@
 {-
  -
- -  Copyright 2005-2007, Robert Dockins.
+ -  Copyright 2005-2008, Robert Dockins.
  -
  -}
 
@@ -10,7 +10,7 @@ module System.Console.Shell.RunShell (
 , simpleSubshell
 ) where
 
-import Data.Maybe                       ( isJust )
+import Data.Maybe                  ( isJust )
 import Data.Char                   ( isSpace )
 import Data.List                   ( isPrefixOf, find )
 import Data.IORef                  ( IORef, newIORef, readIORef, writeIORef )
