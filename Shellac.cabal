@@ -1,7 +1,7 @@
 Name:           Shellac
 Cabal-Version:  >= 1.2
 Build-Type:     Simple
-Version:        0.9.1
+Version:        0.9.5
 License:        BSD3
 License-File:   LICENSE
 Author:         Robert Dockins
@@ -25,7 +25,7 @@ Library
   Hs-Source-Dirs:
      src
   Build-Depends:
-     base, mtl
+     base >= 4, mtl, directory
   Extensions:
      MultiParamTypeClasses
      FunctionalDependencies
@@ -39,12 +39,7 @@ Library
   if os(windows)
      CPP-Options: -DBUILD_WINDOWS
   else
-     if impl( ghc >= 6.8 )
-        Build-Depends: unix
-
-  if impl( ghc >= 6.8 )
-     Build-Depends: directory
-     GHC-Options: -XPatternSignatures
+     Build-Depends: unix
 
   Exposed-modules:
      System.Console.Shell
