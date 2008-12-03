@@ -84,8 +84,8 @@ data ShellDescription st
    , secondaryPrompt    :: Maybe (st -> IO String)  -- ^ A command to generate the secondary prompt.  The secondary
                                                     --   prompt is used for multi-line input.  If not set, the
                                                     --   regular prompt is used instead.
-   , exceptionHandler   :: Ex.Exception ->
-                           Sh st ()                 -- ^ A function called when an exception occurs
+   , exceptionHandler   :: Ex.SomeException ->
+                              Sh st ()              -- ^ A set of handlers to call when an exception occurs
    , defaultCompletions :: Maybe (st -> String 
                                   -> IO [String])   -- ^ If set, this function provides completions when NOT
                                                     --   in the context of a shell command
