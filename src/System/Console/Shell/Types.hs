@@ -31,6 +31,15 @@ data CommandCompleter st
   | OtherCompleter (st -> String -> IO [String])
 
 
+#ifdef BASE4
+-- | Compatability layer.  For base-3, this is
+--   \'Exception\'.  For base-4, this is
+--   \'SomeException\'.
+type ShellacException = Ex.SomeException
+#else
+type ShellacException = Ex.Exception
+#endif
+
 -- | The result of parsing a command.
 data CommandParseResult st
 
@@ -84,7 +93,7 @@ data ShellDescription st
    , secondaryPrompt    :: Maybe (st -> IO String)  -- ^ A command to generate the secondary prompt.  The secondary
                                                     --   prompt is used for multi-line input.  If not set, the
                                                     --   regular prompt is used instead.
-   , exceptionHandler   :: Ex.SomeException ->
+   , exceptionHandler   :: ShellacException ->
                               Sh st ()              -- ^ A set of handlers to call when an exception occurs
    , defaultCompletions :: Maybe (st -> String 
                                   -> IO [String])   -- ^ If set, this function provides completions when NOT
