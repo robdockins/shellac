@@ -60,6 +60,7 @@ module System.Console.Shell (
 , ShellSpecial (..)
 , OutputCommand
 , CommandResult
+, ShellacException
 ) where
 
 import System.Console.Shell.Types
