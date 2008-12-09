@@ -24,10 +24,8 @@ Description:
 flag base4
 
 Library
-  Hs-Source-Dirs:
-     src
-  Build-Depends:
-     base < 5, mtl, directory
+  Hs-Source-Dirs: src
+  Build-Depends: base < 5, mtl, directory
 
   if flag(base4)
      Build-Depends: base >= 4
@@ -35,8 +33,13 @@ Library
   else
      Build-Depends: base < 4
 
-  if impl(ghc >= 6.8) && impl (ghc < 6.10)
+  if impl(ghc >= 6.8) && impl(ghc < 6.10)
      Extensions: PatternSignatures
+
+  if os(windows)
+     CPP-Options: -DBUILD_WINDOWS
+  else
+     Build-Depends: unix
 
   Extensions:
      MultiParamTypeClasses
@@ -47,11 +50,6 @@ Library
      GeneralizedNewtypeDeriving
      FlexibleInstances
      ScopedTypeVariables
-
-  if os(windows)
-     CPP-Options: -DBUILD_WINDOWS
-  else
-     Build-Depends: unix
 
   Exposed-modules:
      System.Console.Shell
