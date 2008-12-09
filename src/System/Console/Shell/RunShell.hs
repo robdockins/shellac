@@ -236,7 +236,7 @@ shellLoop desc backend iss = loop
         inp <- doGetInput ci pr
 
         case inp of
-           Nothing   -> return st
+           Nothing   -> (outputString backend bst) (RegularOutput "\n") >> return st
            Just inp' -> if not (isJust ci)
                            then handleInput   inp' st
                            else evaluateInput inp' st
