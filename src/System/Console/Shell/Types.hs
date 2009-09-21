@@ -18,8 +18,9 @@ import System.Console.Shell.Backend
 -- | Datatype describing the style of shell commands.  This
 --   determines how shell input is parsed.
 data CommandStyle
-   = OnlyCommands            -- ^ Indicates that all input is to be interpreted as shell commands; no
-                             --   input will be passed to the evaluation function.
+   = OnlyCommands            -- ^ Indicates that all input is to be interpreted as shell commands;
+                             --   input is only passed to the evaluation fuction if it cannot be
+                             --   parsed as a command.
    | CharPrefixCommands Char -- ^ Indicates that commands are prefixed with a particular character.
                              --   Colon \':\' is the default character (a la GHCi).
    | SingleCharCommands      -- ^ Commands consist of a single character.
