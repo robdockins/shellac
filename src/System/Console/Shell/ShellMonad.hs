@@ -26,6 +26,12 @@ module System.Console.Shell.ShellMonad (
 
 -- * Special actions
 , shellSpecial
+
+
+-- * Extracting and using the shell context
+, ShellContext
+, extractContext, runWithContext, updateCommandResult
+
 ) where
 
 import Control.Monad.Reader
@@ -87,3 +93,23 @@ shellSpecial spec = Sh (get >>= \ (st,_) -> put (st,Just spec))
 instance MonadState st (Sh st) where
   get = getShellSt
   put = putShellSt
+
+-- | The total context held by the shell, with @'CommandResult' st@
+--   being mutable and 'OutputCommand' immutable
+type ShellContext st = (CommandResult st, OutputCommand)
+
+-- | Extract the current shell context for future use, see 'runWithContext'
+extractContext :: Sh st (ShellContext st)
+extractContext = (Sh . StateT) $ \s -> do
+    imC <- ask               
+    return ((s, imC), s)
+
+-- | Run a shell with the supplied context, useful if you need to
+--   invoke a shell within a new IO context, for example when using
+--   'System.Timeout.timeout'
+runWithContext :: ShellContext st -> Sh st a -> IO (a, CommandResult st)
+runWithContext (mC, imC) = (flip runReaderT) imC . (flip runStateT) mC . unSh
+
+-- | Update the mutable context of this shell
+updateCommandResult :: CommandResult st -> Sh st ()
+updateCommandResult s = (Sh . StateT) $ \_ -> return (() , s)
