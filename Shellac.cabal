@@ -1,7 +1,7 @@
 Name:           Shellac
 Cabal-Version:  >= 1.2
 Build-Type:     Simple
-Version:        0.9.5
+Version:        0.9.5.1
 License:        BSD3
 License-File:   LICENSE
 Author:         Robert Dockins
