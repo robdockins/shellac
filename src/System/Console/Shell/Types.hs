@@ -73,7 +73,7 @@ type OutputCommand = BackendOutput -> IO ()
 --   The type parameter @st@ allows the monad to carry around a package of
 --   user-defined state.
 newtype Sh st a = Sh { unSh :: StateT (CommandResult st) (ReaderT OutputCommand IO) a }
-   deriving (Monad, MonadIO)
+   deriving (Monad, MonadIO, MonadFix, Functor)
 
 ------------------------------------------------------------------------
 -- The shell description and utility functions
