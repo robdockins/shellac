@@ -1,7 +1,7 @@
 Name:           Shellac
-Cabal-Version:  >= 1.2
+Cabal-Version:  >= 1.22
 Build-Type:     Simple
-Version:        0.9.5.1
+Version:        0.9.9
 License:        BSD3
 License-File:   LICENSE
 Author:         Robert Dockins
@@ -9,7 +9,7 @@ Maintainer:     robdockins AT fastmail DOT fm
 Category:       User Interfaces
 Stability:      Beta
 Synopsis:       A framework for creating shell envinronments
-Homepage:       http://www.cs.princeton.edu/~rdockins/shellac/home/
+Homepage:       http://rwd.rdockins.name/shellac/home/
 Description:
   Shellac is a framework for building read-eval-print style shells.
   Shells are created by declaratively defining a set of shell commands
@@ -21,31 +21,25 @@ Description:
   and still enjoy the advanced features that may be available from a
   powerful line editing package like readline.
 
-flag base4
-
 Library
   Hs-Source-Dirs: src
-  Build-Depends: base < 5, mtl, directory
-
-  if flag(base4)
-     Build-Depends: base >= 4
-     CPP-Options: -DBASE4
-  else
-     Build-Depends: base < 4
-
-  if impl(ghc >= 6.8) && impl(ghc < 6.10)
-     Extensions: PatternSignatures
+  Build-Depends:
+    base == 4.*,
+    mtl,
+    directory
 
   if os(windows)
      CPP-Options: -DBUILD_WINDOWS
   else
      Build-Depends: unix
 
-  Extensions:
+  Default-Language: Haskell2010
+  Default-Extensions:
      MultiParamTypeClasses
      FunctionalDependencies
      ExistentialQuantification
      CPP
+     ScopedTypeVariables
      UndecidableInstances
      GeneralizedNewtypeDeriving
      FlexibleInstances

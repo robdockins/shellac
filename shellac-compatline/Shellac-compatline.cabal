@@ -1,6 +1,6 @@
 Name:           Shellac-compatline
-Version:        0.9
-Cabal-version:  >= 1.2.2
+Version:        0.9.9
+Cabal-version:  >= 1.22
 Build-Type:     Simple
 Author:         Robert Dockins
 License:        BSD3
@@ -8,7 +8,7 @@ License-File:   LICENSE
 Maintainer:     robdockins AT fastmail DOT fm
 Category:       User Interfaces
 Stability:      Beta
-Homepage:       http://www.cs.princeton.edu/~rdockins/shellac/home/
+Homepage:       http://rwd.rdockins.name/shellac/home/
 Synopsis:       "compatline" backend module for Shellac
 Description:
    This package provides a Shellac backend which acts a thin interface
@@ -18,18 +18,18 @@ Description:
 
 Flag UseEditline
   Description: Use the Shellac-editline pacakge
-  Default: True
+  Default: False
 
 Flag UseReadline
   Description: Use the Shellac-readline package
-  Default: False
+  Default: True
 
 Library
   Hs-Source-Dirs:
     src
   Build-Depends:
-     base, haskell98,
-     Shellac >= 0.9
+     base == 4.*,
+     Shellac
   if(flag(UseEditline))
     Build-Depends: Shellac-editline
     CPP-Options: -DUSE_EDITLINE
@@ -40,4 +40,6 @@ Library
     Build-Depends: DependencyResolutionFailure > 999
   Exposed-modules:
      System.Console.Shell.Backend.Compatline
-  Extensions: CPP
+
+  Default-Language: Haskell2010
+  Default-Extensions: CPP

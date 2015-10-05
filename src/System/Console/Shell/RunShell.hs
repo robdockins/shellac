@@ -321,22 +321,12 @@ shellLoop desc backend iss = loop
 --   ignores the thread killed exception, because that is used to
 --   implement execution canceling)
 
-#ifdef BASE4
-
 defaultExceptionHandler :: ShellacException -> Sh st ()
 defaultExceptionHandler ex =
   case Ex.fromException ex of
     Just Ex.ThreadKilled -> return ()
     _ -> shellPutErrLn $ concat ["The following exception occurred:\n   ",show ex]
 
-#else
-
-defaultExceptionHandler :: ShellacException -> Sh st ()
-defaultExceptionHandler (Ex.AsyncException Ex.ThreadKilled) = return ()
-defaultExceptionHandler ex = do
-  shellPutErrLn $ concat ["The following exception occurred:\n   ",show ex]
-
-#endif
 
 ----------------------------------------------------------------------------
 -- | Creates a simple subshell from a state mapping function

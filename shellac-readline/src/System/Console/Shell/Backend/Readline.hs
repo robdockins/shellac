@@ -25,8 +25,8 @@ import System.IO            ( stdin, stdout, stderr, hFlush, hPutStr, hPutStrLn,
                             , BufferMode(..)
                             )
 import Foreign.Ptr          ( Ptr )
-import Foreign.C            ( CInt, CString, withCString )
-import Foreign.C.Error      ( Errno, eOK, errnoToIOError )
+import Foreign.C            ( CInt(..), CString, withCString )
+import Foreign.C.Error      ( Errno(..), eOK, errnoToIOError )
 import Foreign.Storable     ( peek )
 
 import qualified Control.Exception as Ex

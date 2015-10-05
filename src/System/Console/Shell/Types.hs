@@ -31,15 +31,7 @@ data CommandCompleter st
   | UsernameCompleter
   | OtherCompleter (st -> String -> IO [String])
 
-
-#ifdef BASE4
--- | Compatability layer.  For base-3, this is
---   \'Exception\'.  For base-4, this is
---   \'SomeException\'.
 type ShellacException = Ex.SomeException
-#else
-type ShellacException = Ex.Exception
-#endif
 
 -- | The result of parsing a command.
 data CommandParseResult st
@@ -74,7 +66,7 @@ type OutputCommand = BackendOutput -> IO ()
 --   The type parameter @st@ allows the monad to carry around a package of
 --   user-defined state.
 newtype Sh st a = Sh { unSh :: StateT (CommandResult st) (ReaderT OutputCommand IO) a }
-   deriving (Monad, MonadIO, MonadFix, Functor)
+   deriving (Monad, MonadIO, MonadFix, Functor, Applicative)
 
 ------------------------------------------------------------------------
 -- The shell description and utility functions
