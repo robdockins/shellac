@@ -1,0 +1,25 @@
+Name:           Shellac-readline
+Version:        0.9
+License:        BSD3
+License-File:   LICENSE
+Author:         Robert Dockins
+Maintainer:     robdockins AT fastmail DOT fm
+Category:       User Interfaces
+Stability:      Beta
+Synopsis:       Readline backend module for Shellac
+Description:
+   This package provides a Shellac backend based on the GNU readline
+   library.  This backend features all the line editing capabilities
+   provided by readline, as well as command completion and command
+   history features.
+Hs-Source-Dirs:
+   src
+Build-Depends:
+   base >= 1.0,
+   haskell98 >= 1.0,
+   readline >= 1.0,
+   Shellac >= 0.9
+Exposed-modules:
+   System.Console.Shell.Backend.Readline
+Extensions:
+   ForeignFunctionInterface
