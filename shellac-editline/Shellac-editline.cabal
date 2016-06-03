@@ -27,3 +27,4 @@ Library
     Shellac
   Exposed-modules:
     System.Console.Shell.Backend.Editline
+  Default-Language: Haskell2010

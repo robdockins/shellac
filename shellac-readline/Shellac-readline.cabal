@@ -1,6 +1,7 @@
 Name:           Shellac-readline
 Version:        0.9.9
 Cabal-Version:  >= 1.22
+Build-type:     Simple
 License:        BSD3
 License-File:   LICENSE
 Author:         Robert Dockins
@@ -24,5 +25,6 @@ Library
    Shellac
   Exposed-modules:
      System.Console.Shell.Backend.Readline
-  Extensions:
+  Default-Extensions:
      ForeignFunctionInterface
+  Default-Language: Haskell2010
