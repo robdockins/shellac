@@ -21,6 +21,10 @@ Description:
   and still enjoy the advanced features that may be available from a
   powerful line editing package like readline.
 
+Source-repository head
+  type:     git
+  location: git://github.com/robdockins/shellac
+
 Library
   Hs-Source-Dirs: src
   Build-Depends:

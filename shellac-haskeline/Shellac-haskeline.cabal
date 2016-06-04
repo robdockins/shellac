@@ -7,7 +7,7 @@ License:        BSD3
 License-File:   LICENSE
 Copyright:      (c) Judah Jacobson
 Author:         Judah Jacobson
-Maintainer:     Judah Jacobson <judah.jacobson@gmail.com>
+Maintainer:     Rob Dockins <robdockins@fastmail.fm>
 Category:       User Interfaces
 Synopsis:       Haskeline backend module for Shellac
 Description:    This module provides a backend for Shellac using the Haskeline library.  It
@@ -15,6 +15,11 @@ Description:    This module provides a backend for Shellac using the Haskeline l
                 history features.
 Stability:      Experimental
 Build-Type:     Simple
+
+Source-repository head
+  type:     git
+  location: git://github.com/robdockins/shellac
+  subdir:   shellac-haskeline
 
 Library
     Build-depends: base>=3 && <5,

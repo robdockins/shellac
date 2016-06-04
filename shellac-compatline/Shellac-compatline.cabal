@@ -16,6 +16,11 @@ Description:
    on avaliability.  Note that this package may be compiled against
    readline, which is licended under the GPL.
 
+Source-repository head
+  type:     git
+  location: git://github.com/robdockins/shellac
+  subdir:   shellac-compatline
+
 Flag UseEditline
   Description: Use the Shellac-editline pacakge
   Default: False

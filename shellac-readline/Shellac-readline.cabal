@@ -16,6 +16,11 @@ Description:
    provided by readline, as well as command completion and command
    history features.
 
+Source-repository head
+  type:     git
+  location: git://github.com/robdockins/shellac
+  subdir:   shellac-readline
+
 Library
   Hs-Source-Dirs:
    src
