@@ -217,9 +217,11 @@ shellLoop desc backend iss = loop
    bst = backendState iss
 
    loop st = do
-        flushOutput backend bst
+     flushOutput backend bst
+     
+     runSh st (outputString backend bst) (beforePrompt desc) >>= loop' . fst
 
-        runSh st (outputString backend bst) (beforePrompt desc)
+   loop' st = do
         setAttemptedCompletionFunction backend bst
               (completionFunction desc backend bst st)
 
