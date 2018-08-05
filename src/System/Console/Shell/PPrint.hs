@@ -47,7 +47,7 @@ module System.Console.Shell.PPrint
         , displayS, displayIO
         ) where
 
-import Prelude hiding ( (<|>), (<$>) )
+import Prelude hiding ( (<|>), (<$>), (<>) )
 import System.IO      (Handle,hPutStr,hPutChar,stdout)
 
 infixr 5 </>,<//>,<$>,<$$>
