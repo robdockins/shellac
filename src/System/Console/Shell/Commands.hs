@@ -21,6 +21,7 @@ module System.Console.Shell.Commands
 , commandsRegex
 ) where
 
+import Prelude hiding ((<>))
 import System.Console.Shell.Types
 import System.Console.Shell.PPrint
 import System.Console.Shell.Regex
