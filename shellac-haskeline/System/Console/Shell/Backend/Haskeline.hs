@@ -9,7 +9,8 @@ import System.Console.Haskeline.IO
 import System.IO
 import Data.IORef
 import Control.Monad.State
-import Data.Maybe(fromMaybe)
+import Data.Maybe (fromMaybe)
+import Data.Bool (bool)
 
 data ShellacState = ShellacState {
                         inputState :: InputState,
@@ -81,26 +82,29 @@ outputter (ErrorOutput str) = liftIO $ hPutStr stderr str
 
 wrapShellacCompleter :: String -> CompletionFunction -> Maybe (String -> IO [String])
                             -> CompletionFunc IO
-wrapShellacCompleter breakChars f mg (left,right) = do
-    let (rword,rleft') = break (`elem` breakChars) left
-    let (left', word) = (reverse rleft', reverse rword)
-    result <- f (left',word,right)
-    completions <- case result of
-                        Nothing -> case mg of
-                            Nothing -> return []
-                            Just g -> g word
-                        Just (str,[]) -> return [str]
-                        Just (_,alts) -> return alts
-    return (rleft', map makeCompletion completions)
-
--- a hack to avoid adding a trailing space to completed folders.
--- I could go a little further and test whether it corresponds to an
--- actual file.
-makeCompletion :: String -> Completion
-makeCompletion "" = simpleCompletion ""
-makeCompletion s = (simpleCompletion s) {
-                isFinished = not (last s `elem` "/\\")
-                    }
+wrapShellacCompleter breakChars f mg (left, right) = do
+    let (rword, rleft', quote)
+          | even quotes = wQuote $ break (`elem` breakChars) left
+          | otherwise   = wQuote . (\(a, b) -> (a, safeTail b)) $ break (== '"') left
+          where
+            wQuote (a, b) = (a, b, not $ even quotes)
+            quotes = snd $ foldl cQuote (0, 0) left
+            cQuote (bSlashes, quotes) '\\' = (bSlashes + 1, quotes)
+            cQuote (bSlashes, quotes) '"'
+              | even bSlashes = (0, quotes + 1)
+              | otherwise     = (0, quotes)
+            cQuote (_, quotes) _ = (0, quotes)
+            safeTail [] = []
+            safeTail (_:xs) = xs
+        (left', word) = (reverse rleft', reverse rword)
+    (prefix, completions) <- maybe ((\cs -> (word, cs)) <$> maybe (return []) ($ word) mg) return =<< fmap (\(_, cs) -> ("", cs)) <$> f (left', word, right)
+    let
+      quote = any (any (`elem` breakChars)) completions
+      makeCompletion "" = simpleCompletion ""
+      makeCompletion s = (simpleCompletion s)
+                         { replacement = s ++ bool "" "\"" quote
+                         }
+    return (reverse prefix ++ bool "" "\"" quote ++ rleft', map makeCompletion completions)
 
 longestPrefix :: [String] -> String
 longestPrefix = foldl1 commonPrefix
