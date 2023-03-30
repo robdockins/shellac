@@ -8,7 +8,7 @@ Author:         Robert Dockins
 Maintainer:     robdockins AT fastmail DOT fm
 Category:       User Interfaces
 Stability:      Beta
-Synopsis:       A framework for creating shell envinronments
+Synopsis:       A framework for creating shell environments
 Homepage:       http://rwd.rdockins.name/shellac/home/
 Description:
   Shellac is a framework for building read-eval-print style shells.

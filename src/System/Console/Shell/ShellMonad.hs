@@ -80,7 +80,7 @@ getShellSt = Sh (get >>= return . fst)
 putShellSt :: st -> Sh st ()
 putShellSt st = Sh (get >>= \ (_,spec) -> put (st,spec))
 
--- | Apply the given funtion to the shell state
+-- | Apply the given function to the shell state
 modifyShellSt :: (st -> st) -> Sh st ()
 modifyShellSt f = getShellSt >>= putShellSt . f
 

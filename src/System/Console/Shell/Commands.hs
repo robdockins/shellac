@@ -62,7 +62,7 @@ class Completion compl st | compl -> st where
 
 
 -----------------------------------------------------------------------
--- | Prints the help message for this shell, which lists all avaliable
+-- | Prints the help message for this shell, which lists all available
 --   commands with their syntax and a short informative message about each.
 
 showShellHelp :: ShellDescription st -> String
@@ -134,7 +134,7 @@ toggle name helpMsg getter setter desc =
              else shellPutInfoLn (name++" on")  >> putShellSt (setter True  st)
 
 -------------------------------------------------------------------
--- | Creates a user defined shell commmand.  This relies on the
+-- | Creates a user defined shell command.  This relies on the
 --   typeclass machenery defined by 'CommandFunction'.
 cmd :: CommandFunction f st
     => String           -- ^ the name of the command
@@ -153,7 +153,7 @@ cmd name f helpMsg desc =
 
 
 ------------------------------------------------------------------------------
--- | This class is used in the 'cmd' function to automaticly generate
+-- | This class is used in the 'cmd' function to automatically generate
 --   the command parsers and command syntax strings for user defined
 --   commands.  The type of \'f\' is restricted to have a restricted set of
 --   monomorphic arguments ('Int', 'Integer', 'Float', 'Double', 'String',
