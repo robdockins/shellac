@@ -8,7 +8,7 @@
  -   They are used to parse the arguments to shell commands and to give
  -   information about the type of the argument at a position in the
  -   string to allow positional word completion.  The REs are directly
- -   interpreted in the list monad, so effeciency isn't so great, but
+ -   interpreted in the list monad, so efficiency isn't so great, but
  -   for most shell command lines that won't matter too much.
  -}
 
@@ -44,7 +44,7 @@ data RegexContext
  deriving Eq
 
 {-  Print a string representation of a regular expression.
-    Really only useful for debugging becuase there is no
+    Really only useful for debugging because there is no
     inverse (parser).
 -}
 showRegex :: RegexContext -> Regex a x -> String

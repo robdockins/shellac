@@ -317,7 +317,7 @@ shellLoop desc backend iss = loop
 
 -------------------------------------------------------------------------
 -- | The default shell exception handler.  It simply prints the exception
---   and returns the shell state unchanged.  (However, it specificaly
+--   and returns the shell state unchanged.  (However, it specifically
 --   ignores the thread killed exception, because that is used to
 --   implement execution canceling)
 

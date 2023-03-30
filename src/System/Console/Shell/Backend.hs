@@ -39,7 +39,7 @@ module System.Console.Shell.Backend
 type CompletionFunction = (String,String,String) 
                         -> IO (Maybe (String, [String]))
 
--- | A datatype representing ouput to be printed.  The different categories of
+-- | A datatype representing output to be printed.  The different categories of
 --   output are distinguished to that shell backends can, for example, apply
 --   different colors or send output to different places (stderr versus stdout).
 
@@ -137,7 +137,7 @@ defaultWordBreakChars = " \t\n\r\v`~!@#$%^&*()=[]{};\\\'\",<>"
 
 -- | This backend template is useful for defining custom backends.
 --   The idea is that you will use 'templateBackend' to generate a
---   bare-bones backend implemenation and only fill in the methods
+--   bare-bones backend implementation and only fill in the methods
 --   that you wish to define using the record update syntax.
 --   The parameter to 'templateBackend'
 --   becomes the backend state associated with the backend and is

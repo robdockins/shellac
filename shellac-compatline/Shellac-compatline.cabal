@@ -13,7 +13,7 @@ Synopsis:       "compatline" backend module for Shellac
 Description:
    This package provides a Shellac backend which acts a thin interface
    for the Shellac-readline or Shellac-editline packages, depending
-   on avaliability.  Note that this package may be compiled against
+   on availability.  Note that this package may be compiled against
    readline, which is licended under the GPL.
 
 Source-repository head
@@ -22,7 +22,7 @@ Source-repository head
   subdir:   shellac-compatline
 
 Flag UseEditline
-  Description: Use the Shellac-editline pacakge
+  Description: Use the Shellac-editline package
   Default: False
 
 Flag UseReadline

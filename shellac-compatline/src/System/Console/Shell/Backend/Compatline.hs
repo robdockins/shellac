@@ -6,15 +6,15 @@
 
 {- | This module implements a Shellac backend based either on
      GNU readline or on libedit.  The choice between these two
-     packages is made at compile time, based on avaliability.  In the case that
-     both are avaliable, libedit is chosen.
+     packages is made at compile time, based on availability.  In the case that
+     both are available, libedit is chosen.
 
      Beware that while the code for this Shellac binding is licensed under a BSD3
      license, GNU readline itself is licensed under the GPL.  This means that your
      project needs to be GPL compatible to use this backend!  Otherwise you may encounter
      licensing issues.
 
-     If your project is not GPL compatabile you should instead use the Shellac-editline
+     If your project is not GPL compatible you should instead use the Shellac-editline
      library, as editline is licensed under a BSD3 license.
 -}
 
